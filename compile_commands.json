@@ -1,0 +1,20 @@
+[
+{
+  "directory": "/home/ram/Sriram_Tatikonda/Sriram2/VS code projects/games/raylib_flow/build",
+  "command": "/usr/bin/c++  -I\"/home/ram/Sriram_Tatikonda/Sriram2/VS code projects/games/raylib_flow/header\" -I/usr/include/SDL2 -I/usr/include/libpng16 -I/usr/include/rav1e -I/usr/include/svt-av1 -I/usr/include/webp -std=gnu++17 -o CMakeFiles/Game.dir/src/background.cpp.o -c \"/home/ram/Sriram_Tatikonda/Sriram2/VS code projects/games/raylib_flow/src/background.cpp\"",
+  "file": "/home/ram/Sriram_Tatikonda/Sriram2/VS code projects/games/raylib_flow/src/background.cpp",
+  "output": "CMakeFiles/Game.dir/src/background.cpp.o"
+},
+{
+  "directory": "/home/ram/Sriram_Tatikonda/Sriram2/VS code projects/games/raylib_flow/build",
+  "command": "/usr/bin/c++  -I\"/home/ram/Sriram_Tatikonda/Sriram2/VS code projects/games/raylib_flow/header\" -I/usr/include/SDL2 -I/usr/include/libpng16 -I/usr/include/rav1e -I/usr/include/svt-av1 -I/usr/include/webp -std=gnu++17 -o CMakeFiles/Game.dir/src/game.cpp.o -c \"/home/ram/Sriram_Tatikonda/Sriram2/VS code projects/games/raylib_flow/src/game.cpp\"",
+  "file": "/home/ram/Sriram_Tatikonda/Sriram2/VS code projects/games/raylib_flow/src/game.cpp",
+  "output": "CMakeFiles/Game.dir/src/game.cpp.o"
+},
+{
+  "directory": "/home/ram/Sriram_Tatikonda/Sriram2/VS code projects/games/raylib_flow/build",
+  "command": "/usr/bin/c++  -I\"/home/ram/Sriram_Tatikonda/Sriram2/VS code projects/games/raylib_flow/header\" -I/usr/include/SDL2 -I/usr/include/libpng16 -I/usr/include/rav1e -I/usr/include/svt-av1 -I/usr/include/webp -std=gnu++17 -o CMakeFiles/Game.dir/src/main.cpp.o -c \"/home/ram/Sriram_Tatikonda/Sriram2/VS code projects/games/raylib_flow/src/main.cpp\"",
+  "file": "/home/ram/Sriram_Tatikonda/Sriram2/VS code projects/games/raylib_flow/src/main.cpp",
+  "output": "CMakeFiles/Game.dir/src/main.cpp.o"
+}
+]
