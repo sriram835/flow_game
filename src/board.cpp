@@ -1,20 +1,17 @@
 #include "board.h"
 
 bool Board::makeMove(vector<pair<int, int>> indexes) {
-	for (auto path:saved_paths){
-		for (auto index:path){
-			cout << index.first << " " << index.second << "\t";
-
-		}
-		cout << "\n";
-	}
+  for (auto path : saved_paths) {
+    for (auto index : path) {
+      cout << index.first << " " << index.second << "\t";
+    }
+    cout << "\n";
+  }
   if (!isValidPath(indexes)) {
     cout << "invalid path\n";
 
     return false;
   }
-
-
 
   cout << "valid path\n";
 
@@ -50,8 +47,9 @@ bool Board::makeMove(vector<pair<int, int>> indexes) {
 
 bool Board::isValidPath(vector<pair<int, int>> indexes) {
   int n = indexes.size();
-  if (n <= 1)
+  if (n <= 1) {
     return false;
+  }
 
   auto start = indexes[0];
   auto end = indexes[n - 1];
@@ -98,6 +96,11 @@ bool Board::isValidPath(vector<pair<int, int>> indexes) {
     visited[x][y] = true;
 
     Cell c = board[x][y];
+
+    if (c.hasPipe) {
+      cout << "Already filled\n";
+      return false;
+    }
 
     // Start/end already checked; intermediates must be empty
     if (i != 0 && i != n - 1) {
