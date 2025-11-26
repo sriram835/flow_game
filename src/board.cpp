@@ -1,25 +1,40 @@
 #include "board.h"
 
 bool Board::makeMove(vector<pair<int, int>> indexes) {
-  if (!isValidPath(indexes))
-    return false;
+	for (auto path:saved_paths){
+		for (auto index:path){
+			cout << index.first << " " << index.second << "\t";
 
+		}
+		cout << "\n";
+	}
+  if (!isValidPath(indexes)) {
+    cout << "invalid path\n";
+
+    return false;
+  }
+
+
+
+  cout << "valid path\n";
+
+  saved_paths.push_back(indexes);
   int n = indexes.size();
   auto start = indexes[0];
   auto end = indexes[n - 1];
 
-  int start_x = start.first;
-  int start_y = start.second;
-  int end_x = end.first;
-  int end_y = end.second;
+  int start_row = start.first;
+  int start_col = start.second;
+  int end_row = end.first;
+  int end_col = end.second;
 
-  int color = board[start_x][start_y].color; // same as end’s color
+  int color = board[start_row][start_col].color; // same as end’s color
 
   for (int i = 0; i < n; ++i) {
-    int x = indexes[i].first;
-    int y = indexes[i].second;
+    int row = indexes[i].first;
+    int col = indexes[i].second;
 
-    Cell &c = board[x][y];
+    Cell &c = board[row][col];
 
     // Mark that this cell now has a pipe
     c.hasPipe = true;
@@ -41,25 +56,29 @@ bool Board::isValidPath(vector<pair<int, int>> indexes) {
   auto start = indexes[0];
   auto end = indexes[n - 1];
 
-  int start_x = start.first;
-  int start_y = start.second;
-  int end_x = end.first;
-  int end_y = end.second;
+  int start_row = start.first;
+  int start_col = start.second;
+  int end_row = end.first;
+  int end_col = end.second;
 
   // Bounds check for first and last
-  if (start_x < 0 || start_x >= GRID || start_y < 0 || start_y >= GRID)
+  if (start_row < 0 || start_row >= GRID || start_col < 0 || start_col >= GRID)
     return false;
-  if (end_x < 0 || end_x >= GRID || end_y < 0 || end_y >= GRID)
+  if (end_row < 0 || end_row >= GRID || end_col < 0 || end_col >= GRID)
     return false;
 
-  Cell start_cell = board[start_x][start_y];
-  Cell end_cell = board[end_x][end_y];
+  Cell start_cell = board[start_row][start_col];
+  Cell end_cell = board[end_row][end_col];
 
   // Endpoints must be terminals of same color
-  if (!start_cell.isTerminal || !end_cell.isTerminal)
+  if (!start_cell.isTerminal || !end_cell.isTerminal) {
+    cout << "Not terminal\n";
     return false;
-  if (start_cell.color != end_cell.color)
+  }
+  if (start_cell.color != end_cell.color) {
+    cout << "not same color\n";
     return false;
+  }
   int color = start_cell.color;
 
   // Track visited cells to forbid revisits
@@ -82,13 +101,18 @@ bool Board::isValidPath(vector<pair<int, int>> indexes) {
 
     // Start/end already checked; intermediates must be empty
     if (i != 0 && i != n - 1) {
-      if (c.color != 0 || c.isTerminal)
+      if (c.color != 0 || c.isTerminal) {
+        cout << "not empty in middle\n";
         return false;
+      }
     }
 
     // Intermediate cells must not be terminals
-    if (i != 0 && i != n - 1 && c.isTerminal)
+    if (i != 0 && i != n - 1 && c.isTerminal) {
+
+      cout << "Terminal in middle\n";
       return false;
+    }
 
     // Check adjacency between consecutive cells
     if (i > 0) {
@@ -99,6 +123,7 @@ bool Board::isValidPath(vector<pair<int, int>> indexes) {
 
       // Must move exactly one step in manhattan distance
       if (!((dx == 1 && dy == 0) || (dx == 0 && dy == 1))) {
+        cout << "Not adjancent\n";
         return false;
       }
     }
@@ -108,40 +133,40 @@ bool Board::isValidPath(vector<pair<int, int>> indexes) {
 }
 
 bool Board::loadFromFile(const std::string &filename) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cout << "Error: Cannot open level file: " << filename << std::endl;
-        return false;
+  std::ifstream file(filename);
+  if (!file.is_open()) {
+    std::cout << "Error: Cannot open level file: " << filename << std::endl;
+    return false;
+  }
+
+  std::string line;
+  int row = 0;
+
+  while (std::getline(file, line) && row < GRID) {
+    std::stringstream ss(line);
+    std::string value;
+    int col = 0;
+
+    while (std::getline(ss, value, ',') && col < GRID) {
+      int val = std::stoi(value);
+
+      Cell &c = board[row][col];
+
+      c.color = 0;
+      c.isTerminal = false;
+      c.hasPipe = false;
+
+      if (val != 0) {
+        c.isTerminal = true;
+        c.color = val;
+      }
+
+      col++;
     }
 
-    std::string line;
-    int row = 0;
+    row++;
+  }
 
-    while (std::getline(file, line) && row < GRID) {
-        std::stringstream ss(line);
-        std::string value;
-        int col = 0;
-
-        while (std::getline(ss, value, ',') && col < GRID) {
-            int val = std::stoi(value);
-
-            Cell &c = board[col][row];
-
-            c.color = 0;
-            c.isTerminal = false;
-            c.hasPipe = false;
-
-            if (val != 0) {
-                c.isTerminal = true;
-                c.color = val;
-            }
-
-            col++;
-        }
-
-        row++;
-    }
-
-    file.close();
-    return true;
+  file.close();
+  return true;
 }

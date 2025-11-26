@@ -2,6 +2,12 @@
 #include "raylib.h"
 #include <vector>
 
+std::unordered_map<int, Color> color_map = {
+    {0, Color{255, 0, 0, 255}}, // red
+    {1, Color{0, 255, 0, 255}}, // green
+    {2, Color{0, 0, 255, 255}}  // blue
+};
+
 std::vector<std::string> getLevelFiles(const std::string &folderPath) {
   std::vector<std::string> files;
 
@@ -16,7 +22,7 @@ std::vector<std::string> getLevelFiles(const std::string &folderPath) {
 
 // ----------------------------------------------
 static const int CELL_SIZE = 80;
-static const int PADDING = 20;
+static const int PADDING = 90;
 
 Board board;
 
@@ -28,7 +34,7 @@ GameState state = HUMAN_TURN;
 // Dragging
 bool isDragging = false;
 std::vector<std::pair<int, int>> dragPath;
-int startX = -1, startY = -1;
+int start_row = -1, start_col = -1;
 
 // ----------------------------------------------
 // Convert mouse position → grid coordinates
@@ -48,52 +54,75 @@ int mouseToGridY(int my) {
   return gy;
 }
 
+void drawPath(const vector<pair<int, int>> &path, const Color col) {
+  if (path.empty())
+    return;
+  float thickness = CELL_SIZE * 0.45f;
+
+  if (path.size() == 1) {
+    return;
+  }
+
+  for (int i = 0; i < path.size() - 1; i++) {
+    int r1 = path[i].first, c1 = path[i].second;
+    int r2 = path[i + 1].first, c2 = path[i + 1].second;
+    Vector2 p1 = {c1 * CELL_SIZE + CELL_SIZE * 0.5f + PADDING,
+                  r1 * CELL_SIZE + CELL_SIZE * 0.5f + PADDING};
+    Vector2 p2 = {c2 * CELL_SIZE + CELL_SIZE * 0.5f + PADDING,
+                  r2 * CELL_SIZE + CELL_SIZE * 0.5f + PADDING};
+    DrawCircleV(p1, thickness * 0.5f, col);
+    DrawCircleV(p2, thickness * 0.5f, col);
+    DrawLineEx(p1, p2, thickness, col);
+  }
+}
+
 // ----------------------------------------------
 // Draw the board
-void drawBoard(Board &b) {
+void drawBoard(const Board &b) {
+  float thickness = CELL_SIZE * 0.45f;
+
   for (int x = 0; x < GRID; x++) {
     for (int y = 0; y < GRID; y++) {
 
-      Cell &c = b.board[x][y];
+      Cell c = b.board[x][y];
 
-      Color col = LIGHTGRAY;
+      Color col = Color{0, 0, 0, 255};
+
+      DrawRectangle(PADDING + y * CELL_SIZE, PADDING + x * CELL_SIZE,
+
+                    CELL_SIZE - 2, CELL_SIZE - 2, col);
 
       if (c.isTerminal) {
-        if (c.color == 1)
-          col = RED;
-        if (c.color == 2)
-          col = GREEN;
-        if (c.color == 3)
-          col = BLUE;
-        if (c.color == 4)
-          col = ORANGE;
-      } else if (c.hasPipe) {
-        if (c.color == 1)
-          col = Color{230, 80, 80, 255};
-        if (c.color == 2)
-          col = Color{80, 230, 80, 255};
-        if (c.color == 3)
-          col = Color{80, 80, 230, 255};
-        if (c.color == 4)
-          col = Color{230, 180, 80, 255};
+        col = color_map[b.board[x][y].color];
+        Vector2 point = {y * CELL_SIZE + CELL_SIZE * 0.5f + PADDING,
+                         x * CELL_SIZE + CELL_SIZE * 0.5f + PADDING};
+        DrawCircleV(point, thickness * 0.6f, col);
       }
-
-      DrawRectangle(PADDING + x * CELL_SIZE, PADDING + y * CELL_SIZE,
-                    CELL_SIZE - 2, CELL_SIZE - 2, col);
     }
+  }
+  for (vector<pair<int, int>> path : b.saved_paths) {
+    auto cell_index = path[0];
+    int row = cell_index.first;
+    int col = cell_index.second;
+
+    Color color = color_map[b.board[row][col].color];
+    drawPath(path, color);
   }
 }
 
 // ----------------------------------------------
 // Draw current human drag path (ghost)
 void drawDragPath() {
-  for (auto &p : dragPath) {
-    int x = p.first;
-    int y = p.second;
+  drawPath(dragPath, Color{220, 220, 220, 120});
+  /*
+for (auto &p : dragPath) {
+int x = p.first;
+int y = p.second;
 
-    DrawRectangle(PADDING + x * CELL_SIZE, PADDING + y * CELL_SIZE,
-                  CELL_SIZE - 2, CELL_SIZE - 2, Color{220, 220, 220, 120});
-  }
+DrawRectangle(PADDING + x * CELL_SIZE, PADDING + y * CELL_SIZE,
+            CELL_SIZE - 2, CELL_SIZE - 2, Color{220, 220, 220, 120});
+}
+  */
 }
 
 // ----------------------------------------------
@@ -134,7 +163,14 @@ int main() {
 
   board.loadFromFile(files[choice]);
 
-  InitWindow(600, 600, "Flow Game - Raylib");
+  for (int row = 0; row < GRID; row++) {
+    for (int col = 0; col < GRID; col++) {
+      cout << board.board[row][col].color << " " << row << " " << col << "\t";
+    }
+    cout << "\n";
+  }
+
+  InitWindow(600, 800, "Flow Game - Raylib");
   SetTargetFPS(60);
 
   while (!WindowShouldClose()) {
@@ -146,35 +182,36 @@ int main() {
 
       int mx = GetMouseX();
       int my = GetMouseY();
-      int gx = mouseToGridX(mx);
-      int gy = mouseToGridY(my);
+      int row = mouseToGridY(my);
+      int col = mouseToGridX(mx);
 
       // Start drag
       if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        if (gx != -1 && gy != -1) {
-          Cell &c = board.board[gx][gy];
+        cout << row << " " << col << "\n";
+        if (row != -1 && col != -1) {
+          Cell &c = board.board[row][col];
+
           if (c.isTerminal) {
             isDragging = true;
             dragPath.clear();
-            dragPath.push_back({gx, gy});
-            startX = gx;
-            startY = gy;
+            dragPath.push_back({row, col});
+            start_col = col;
+            start_row = row;
           }
         }
       }
 
       // Continue drag
       if (isDragging && IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
-        if (gx != -1 && gy != -1) {
+        if (row != -1 && col != -1) {
 
           auto last = dragPath.back();
-          bool isNew = !(last.first == gx && last.second == gy);
-
-          bool adjacent = (abs(last.first - gx) == 1 && last.second == gy) ||
-                          (abs(last.second - gy) == 1 && last.first == gx);
+          bool isNew = !(last.first == row && last.second == col);
+          bool adjacent = (abs(last.first - row) == 1 && last.second == col) ||
+                          (abs(last.second - col) == 1 && last.first == row);
 
           if (isNew && adjacent) {
-            dragPath.push_back({gx, gy});
+            dragPath.push_back({row, col});
           }
         }
       }

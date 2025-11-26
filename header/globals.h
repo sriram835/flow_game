@@ -3,27 +3,21 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
-#include <vector>
-#include <utility>
-#include <unordered_map>
-#include <stdbool.h>
-#include <math.h>
-#include <string>
-#include <raylib.h>
-#include <fstream>
 #include <filesystem>
-#include <sstream>
-#include <string>
+#include <fstream>
 #include <iostream>
+#include <math.h>
+#include <raylib.h>
+#include <sstream>
+#include <stdbool.h>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 using namespace std;
 
-
 const int GRID = 5;
-extern unordered_map<int,vector<int>> color_map;
-
+extern unordered_map<int, Color> color_map;
 
 #endif
-
-
-
