@@ -173,3 +173,34 @@ bool Board::loadFromFile(const std::string &filename) {
   file.close();
   return true;
 }
+
+bool Board::removePath(vector<pair<int, int>> path) {
+  for (int i = 0; i < path.size(); i++) {
+
+    int row = path[i].first;
+    int col = path[i].second;
+
+    Cell &c = board[row][col];
+
+    if (!c.isTerminal) {
+      c.color = 0;
+    }
+    c.hasPipe = false;
+  }
+
+  return true;
+}
+
+void Board::undoMove() {
+  auto path = saved_paths.back();
+  bool res = removePath(path);
+  if (res) {
+    saved_paths.pop_back();
+  }
+}
+
+void Board::resetBoard() {
+  while (!saved_paths.empty()) {
+    undoMove();
+  }
+}

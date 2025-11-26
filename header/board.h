@@ -22,6 +22,9 @@ public:
   bool makeMove(vector<pair<int, int>>);
   bool isValidPath(vector<pair<int, int>>);
   bool loadFromFile(const std::string &filename);
+  bool removePath(vector<pair<int, int>>);
+  void undoMove();
+  void resetBoard();
 };
 
 #endif

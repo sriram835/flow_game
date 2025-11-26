@@ -3,9 +3,9 @@
 #include <vector>
 
 std::unordered_map<int, Color> color_map = {
-    {0, Color{255, 0, 0, 255}}, // red
-    {1, Color{0, 255, 0, 255}}, // green
-    {2, Color{0, 0, 255, 255}}  // blue
+    {1, Color{255, 0, 0, 255}}, // red
+    {2, Color{0, 255, 0, 255}}, // green
+    {3, Color{0, 0, 255, 255}}  // blue
 };
 
 std::vector<std::string> getLevelFiles(const std::string &folderPath) {
@@ -20,24 +20,19 @@ std::vector<std::string> getLevelFiles(const std::string &folderPath) {
   return files;
 }
 
-// ----------------------------------------------
 static const int CELL_SIZE = 80;
-static const int PADDING = 90;
+static const int PADDING = 100;
 
 Board board;
 
-// Game state
 enum GameState { HUMAN_TURN, AI_TURN };
 
 GameState state = HUMAN_TURN;
 
-// Dragging
 bool isDragging = false;
 std::vector<std::pair<int, int>> dragPath;
 int start_row = -1, start_col = -1;
 
-// ----------------------------------------------
-// Convert mouse position → grid coordinates
 int mouseToGridX(int mx) {
   mx -= PADDING;
   int gx = mx / CELL_SIZE;
@@ -57,7 +52,7 @@ int mouseToGridY(int my) {
 void drawPath(const vector<pair<int, int>> &path, const Color col) {
   if (path.empty())
     return;
-  float thickness = CELL_SIZE * 0.45f;
+  float thickness = CELL_SIZE * 0.35f;
 
   if (path.size() == 1) {
     return;
@@ -76,10 +71,8 @@ void drawPath(const vector<pair<int, int>> &path, const Color col) {
   }
 }
 
-// ----------------------------------------------
-// Draw the board
 void drawBoard(const Board &b) {
-  float thickness = CELL_SIZE * 0.45f;
+  float thickness = CELL_SIZE * 0.35f;
 
   for (int x = 0; x < GRID; x++) {
     for (int y = 0; y < GRID; y++) {
@@ -96,7 +89,7 @@ void drawBoard(const Board &b) {
         col = color_map[b.board[x][y].color];
         Vector2 point = {y * CELL_SIZE + CELL_SIZE * 0.5f + PADDING,
                          x * CELL_SIZE + CELL_SIZE * 0.5f + PADDING};
-        DrawCircleV(point, thickness * 0.6f, col);
+        DrawCircleV(point, thickness * 0.8f, col);
       }
     }
   }
@@ -110,23 +103,17 @@ void drawBoard(const Board &b) {
   }
 }
 
-// ----------------------------------------------
-// Draw current human drag path (ghost)
 void drawDragPath() {
-  drawPath(dragPath, Color{220, 220, 220, 120});
-  /*
-for (auto &p : dragPath) {
-int x = p.first;
-int y = p.second;
-
-DrawRectangle(PADDING + x * CELL_SIZE, PADDING + y * CELL_SIZE,
-            CELL_SIZE - 2, CELL_SIZE - 2, Color{220, 220, 220, 120});
-}
-  */
+  if (dragPath.empty()) {
+    return;
+  }
+  auto index = dragPath[0];
+  int row = index.first;
+  int col = index.second;
+  int color_int = board.board[row][col].color;
+  drawPath(dragPath, color_map[color_int]);
 }
 
-// ----------------------------------------------
-// Example algorithm() function signature
 std::vector<std::pair<int, int>> algorithm() {
   vector<pair<int, int>> path;
   path.push_back(pair(3, 0));
@@ -137,10 +124,13 @@ std::vector<std::pair<int, int>> algorithm() {
   return path;
 }
 
-// ----------------------------------------------
-// MAIN LOOP
+Rectangle undo_button = {PADDING + (int)(CELL_SIZE * GRID / 2) - 100,
+                         PADDING + CELL_SIZE *GRID + 50, 200, 60};
+
+Rectangle reset_button = {PADDING + (int)(CELL_SIZE * GRID / 2) - 100,
+                          PADDING + CELL_SIZE *GRID + 150, 200, 60};
+
 int main() {
-  // Ask user which level to load
   auto files = getLevelFiles("levels");
   if (files.empty()) {
     std::cout << "No level files found in /levels" << std::endl;
@@ -173,7 +163,28 @@ int main() {
   InitWindow(600, 800, "Flow Game - Raylib");
   SetTargetFPS(60);
 
+  Font roboto_font =
+      LoadFontEx("./resources/fonts/Roboto-Black.ttf", 64, NULL, 250);
+
+  SetTextureFilter(roboto_font.texture, TEXTURE_FILTER_TRILINEAR);
+
   while (!WindowShouldClose()) {
+    Vector2 mouse_pos = GetMousePosition();
+    bool undo_hover = CheckCollisionPointRec(mouse_pos, undo_button);
+    bool undo_clicked = undo_hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+
+    bool reset_hover = CheckCollisionPointRec(mouse_pos, reset_button);
+    bool reset_clicked = reset_hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+
+    if (undo_clicked == true && !board.saved_paths.empty()) {
+      cout << "Undo clicked\n";
+      board.undoMove();
+    }
+
+    if (reset_clicked) {
+      cout << "Reset clicked\n";
+      board.resetBoard();
+    }
 
     // -----------------------------
     // HUMAN TURN LOGIC
@@ -250,8 +261,33 @@ int main() {
     BeginDrawing();
     ClearBackground(RAYWHITE);
 
+    if (undo_hover) {
+      DrawRectangleRec(undo_button, LIGHTGRAY);
+
+    } else {
+      DrawRectangleRec(undo_button, GRAY);
+    }
+    DrawRectangleLines(undo_button.x, undo_button.y, undo_button.width,
+                       undo_button.height, BLACK);
+
+    DrawTextEx(roboto_font, "Undo",
+               (Vector2){undo_button.x + 60, undo_button.y + 15}, 32, 2, BLACK);
+
+    if (reset_hover) {
+      DrawRectangleRec(reset_button, LIGHTGRAY);
+
+    } else {
+      DrawRectangleRec(reset_button, GRAY);
+    }
+    DrawRectangleLines(reset_button.x, reset_button.y, reset_button.width,
+                       reset_button.height, BLACK);
+
+    DrawTextEx(roboto_font, "Reset",
+               (Vector2){reset_button.x + 60, reset_button.y + 15}, 32, 2,
+               BLACK);
+
     drawBoard(board);
-    drawDragPath(); // draw ghost path only during human drag
+    drawDragPath();
 
     EndDrawing();
   }
