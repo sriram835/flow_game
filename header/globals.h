@@ -17,7 +17,7 @@
 
 using namespace std;
 
-const int GRID = 5;
+extern int GRID;
 extern unordered_map<int, Color> color_map;
 
 #endif

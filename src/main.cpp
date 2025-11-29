@@ -1,4 +1,5 @@
 #include "board.h"
+#include "globals.h"
 #include "raylib.h"
 #include <vector>
 
@@ -20,10 +21,10 @@ std::vector<std::string> getLevelFiles(const std::string &folderPath) {
   return files;
 }
 
+int GRID = -1;
+
 static const int CELL_SIZE = 80;
 static const int PADDING = 100;
-
-Board board;
 
 enum GameState { HUMAN_TURN, AI_TURN };
 
@@ -103,7 +104,7 @@ void drawBoard(const Board &b) {
   }
 }
 
-void drawDragPath() {
+void drawDragPath(Board board) {
   if (dragPath.empty()) {
     return;
   }
@@ -124,12 +125,22 @@ std::vector<std::pair<int, int>> algorithm() {
   return path;
 }
 
-Rectangle undo_button = {PADDING + (int)(CELL_SIZE * GRID / 2) - 100,
-                         PADDING + CELL_SIZE *GRID + 50, 200, 60};
+int countLines(const std::string &filePath) {
+  std::ifstream file(filePath);
 
-Rectangle reset_button = {PADDING + (int)(CELL_SIZE * GRID / 2) - 100,
-                          PADDING + CELL_SIZE *GRID + 150, 200, 60};
+  if (!file.is_open()) {
+    return -1; // Could not open file
+  }
 
+  int count = 0;
+  std::string line;
+
+  while (std::getline(file, line)) {
+    count++;
+  }
+
+  return count;
+}
 int main() {
   auto files = getLevelFiles("levels");
   if (files.empty()) {
@@ -151,6 +162,19 @@ int main() {
     return 1;
   }
 
+  GRID = countLines(files[choice]);
+  if (GRID == -1) {
+    exit(EXIT_FAILURE);
+  }
+
+  Rectangle undo_button = {PADDING + (int)(CELL_SIZE * GRID / 2) - 100,
+                           PADDING + CELL_SIZE * GRID + 50, 200, 60};
+
+  Rectangle reset_button = {PADDING + (int)(CELL_SIZE * GRID / 2) - 100,
+                            PADDING + CELL_SIZE * GRID + 150, 200, 60};
+
+  Board board;
+
   board.loadFromFile(files[choice]);
 
   for (int row = 0; row < GRID; row++) {
@@ -160,7 +184,7 @@ int main() {
     cout << "\n";
   }
 
-  InitWindow(600, 800, "Flow Game - Raylib");
+  InitWindow(2*PADDING + GRID*CELL_SIZE, PADDING*2 + CELL_SIZE*GRID + 300, "Flow Game - Raylib");
   SetTargetFPS(60);
 
   Font roboto_font =
@@ -287,7 +311,7 @@ int main() {
                BLACK);
 
     drawBoard(board);
-    drawDragPath();
+    drawDragPath(board);
 
     EndDrawing();
   }
