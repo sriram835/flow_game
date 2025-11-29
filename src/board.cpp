@@ -80,7 +80,7 @@ bool Board::isValidPath(vector<pair<int, int>> indexes) {
   int color = start_cell.color;
 
   // Track visited cells to forbid revisits
-  bool visited[GRID][GRID] = {false};
+  std::vector<std::vector<bool>> visited(GRID, std::vector<bool>(GRID, false));
 
   for (int i = 0; i < n; ++i) {
     int x = indexes[i].first;

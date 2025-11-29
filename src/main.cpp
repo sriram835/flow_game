@@ -4,9 +4,14 @@
 #include <vector>
 
 std::unordered_map<int, Color> color_map = {
-    {1, Color{255, 0, 0, 255}}, // red
-    {2, Color{0, 255, 0, 255}}, // green
-    {3, Color{0, 0, 255, 255}}  // blue
+    {1, Color{255, 0, 0, 255}},   // Red
+    {2, Color{0, 255, 0, 255}},   // Green
+    {3, Color{0, 0, 255, 255}},   // Blue
+    {4, Color{255, 165, 0, 255}}, // Orange
+    {5, Color{255, 0, 255, 255}}, // Magenta / Pink
+    {6, Color{0, 255, 255, 255}}, // Cyan / Aqua
+    {7, Color{255, 255, 0, 255}},  // Yellow
+    {8, Color{112, 55, 67, 255}}
 };
 
 std::vector<std::string> getLevelFiles(const std::string &folderPath) {
@@ -184,7 +189,8 @@ int main() {
     cout << "\n";
   }
 
-  InitWindow(2*PADDING + GRID*CELL_SIZE, PADDING*2 + CELL_SIZE*GRID + 300, "Flow Game - Raylib");
+  InitWindow(2 * PADDING + GRID * CELL_SIZE,
+             PADDING * 2 + CELL_SIZE * GRID + 300, "Flow Game - Raylib");
   SetTargetFPS(60);
 
   Font roboto_font =
