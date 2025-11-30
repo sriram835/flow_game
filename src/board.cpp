@@ -9,6 +9,10 @@ bool Board::makeMove(vector<pair<int, int>> indexes) {
   }
   if (!isValidPath(indexes)) {
     cout << "invalid path\n";
+    for (int i = 0; i < indexes.size(); i++) {
+      cout << indexes[i].first << " " << indexes[i].second << "\t";
+    }
+    cout << "\n";
 
     return false;
   }

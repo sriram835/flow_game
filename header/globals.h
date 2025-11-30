@@ -1,8 +1,4 @@
 
-
-#ifndef GLOBAL_H
-#define GLOBAL_H
-
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -14,6 +10,13 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <queue>
+#include <random>
+#include <algorithm>
+
+#ifndef GLOBAL_H
+#define GLOBAL_H
+
 
 using namespace std;
 
