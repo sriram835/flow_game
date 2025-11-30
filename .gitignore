@@ -1,3 +1,6 @@
 ./build/*
 build
 ./build
+./recordings/*
+./recordings
+recordings
