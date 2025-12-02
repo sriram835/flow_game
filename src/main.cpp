@@ -1,3 +1,4 @@
+#include "algorithm.h"
 #include "board.h"
 #include "globals.h"
 #include "raylib.h"
@@ -10,9 +11,8 @@ std::unordered_map<int, Color> color_map = {
     {4, Color{255, 165, 0, 255}}, // Orange
     {5, Color{255, 0, 255, 255}}, // Magenta / Pink
     {6, Color{0, 255, 255, 255}}, // Cyan / Aqua
-    {7, Color{255, 255, 0, 255}},  // Yellow
-    {8, Color{112, 55, 67, 255}}
-};
+    {7, Color{255, 255, 0, 255}}, // Yellow
+    {8, Color{112, 55, 67, 255}}};
 
 std::vector<std::string> getLevelFiles(const std::string &folderPath) {
   std::vector<std::string> files;
@@ -120,13 +120,8 @@ void drawDragPath(Board board) {
   drawPath(dragPath, color_map[color_int]);
 }
 
-std::vector<std::pair<int, int>> algorithm() {
-  vector<pair<int, int>> path;
-  path.push_back(pair(3, 0));
-  path.push_back(pair(2, 0));
-  path.push_back(pair(1, 0));
-  path.push_back(pair(1, 1));
-
+std::vector<std::pair<int, int>> algorithm(Board board) {
+  vector<pair<int, int>> path = bfs(board);
   return path;
 }
 
@@ -281,7 +276,7 @@ int main() {
     else if (state == AI_TURN) {
 
       // Call your algorithm
-      board.makeMove(algorithm());
+      board.makeMove(algorithm(board));
       state = HUMAN_TURN;
     }
 
