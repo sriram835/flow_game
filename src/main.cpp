@@ -1,4 +1,4 @@
-#include "game_algorithms.h"
+#include "algorithms.h"
 #include "board.h"
 #include "globals.h"
 #include "raylib.h"
