@@ -2,6 +2,8 @@
 #include "globals.h"
 #include "raylib.h"
 #include <vector>
+#include <queue>
+#include <algorithm>
 
 std::unordered_map<int, Color> color_map = {
     {1, Color{255, 0, 0, 255}},   // Red
@@ -120,14 +122,170 @@ void drawDragPath(Board board) {
   drawPath(dragPath, color_map[color_int]);
 }
 
-std::vector<std::pair<int, int>> algorithm() {
-  vector<pair<int, int>> path;
-  path.push_back(pair(3, 0));
-  path.push_back(pair(2, 0));
-  path.push_back(pair(1, 0));
-  path.push_back(pair(1, 1));
+struct TerminalPair {
+    int color;
+    pair<int,int> a;
+    pair<int,int> b;
+    double dist;
+};
 
-  return path;
+double distanceEuclid(pair<int,int> p1, pair<int,int> p2) {
+    double dx = p1.first - p2.first;
+    double dy = p1.second - p2.second;
+    return sqrt(dx*dx + dy*dy);
+}
+
+vector<pair<int,int>> bfsPath(const Board &board, pair<int,int> start, pair<int,int> goal)
+{
+    vector<vector<bool>> visited(GRID, vector<bool>(GRID,false));
+    queue<pair<int,int>> q;
+    unordered_map<int, pair<int,int>> parent;
+
+    auto encode = [&](int r, int c){ return r * GRID + c; };
+
+    q.push(start);
+    visited[start.first][start.second] = true;
+
+    int dr[4] = {1,-1,0,0};
+    int dc[4] = {0,0,1,-1};
+
+    while (!q.empty()) {
+        auto [r, c] = q.front();
+        q.pop();
+
+        if (r == goal.first && c == goal.second)
+            break;
+
+        for (int k = 0; k < 4; k++) {
+            int nr = r + dr[k];
+            int nc = c + dc[k];
+
+            // Bounds
+            if (nr < 0 || nr >= GRID || nc < 0 || nc >= GRID)
+                continue;
+
+            const Cell &cell = board.board[nr][nc];
+
+            // Forbidden:
+            // - other pipes
+            // - terminals of other colors
+            if (cell.hasPipe)
+                continue;
+            if (cell.isTerminal && !(nr == goal.first && nc == goal.second))
+                continue;
+
+            if (!visited[nr][nc]) {
+                visited[nr][nc] = true;
+                parent[encode(nr,nc)] = std::make_pair(r, c);
+                q.push({nr,nc});
+            }
+        }
+    }
+
+    // Reconstruct path
+    vector<pair<int,int>> path;
+
+    if (!visited[goal.first][goal.second])
+        return path;  // no path, return empty
+
+    pair<int,int> cur = goal;
+    while (!(cur.first == start.first && cur.second == start.second)) {
+        path.push_back(cur);
+        cur = parent[encode(cur.first, cur.second)];
+    }
+    path.push_back(start);
+    reverse(path.begin(), path.end());
+    return path;
+}
+
+bool isAlreadySolved(const Board &board, pair<int,int> a, pair<int,int> b)
+{
+    for (const auto &path : board.saved_paths)
+    {
+        if (path.size() < 2) continue;
+
+        auto start = path.front();
+        auto end   = path.back();
+
+        if ((start == a && end == b) ||
+            (start == b && end == a))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+vector<pair<int,int>> algorithm(Board &board)
+{
+    // -------------------------------------------------------------------
+    // 1. Collect all terminal pairs by color
+    // -------------------------------------------------------------------
+    unordered_map<int, vector<pair<int,int>>> terminals;
+
+    for (int r = 0; r < GRID; r++) {
+        for (int c = 0; c < GRID; c++) {
+            const Cell &cell = board.board[r][c];
+            if (cell.isTerminal)
+                terminals[cell.color].push_back({r,c});
+        }
+    }
+
+    // Build a list of pairs
+    vector<TerminalPair> pairs;
+
+    for (auto &kv : terminals) {
+        auto &vec = kv.second;
+        if (vec.size() != 2)
+            continue;
+
+        TerminalPair tp;
+        tp.color = kv.first;
+        tp.a = vec[0];
+        tp.b = vec[1];
+        tp.dist = distanceEuclid(tp.a, tp.b);
+
+        pairs.push_back(tp);
+    }
+
+    // -------------------------------------------------------------------
+    // 2. Sort terminal pairs by Euclidean distance (smallest first)
+    // -------------------------------------------------------------------
+    std::sort(pairs.begin(), pairs.end(),
+              [](const TerminalPair &x, const TerminalPair &y){
+                  return x.dist < y.dist;
+              });
+
+    // -------------------------------------------------------------------
+    // 3. Remove already-solved terminal pairs (solved by human or AI)
+    // -------------------------------------------------------------------
+    pairs.erase(
+        remove_if(pairs.begin(), pairs.end(),
+                  [&](const TerminalPair &tp)
+                  {
+                      return isAlreadySolved(board, tp.a, tp.b);
+                  }),
+        pairs.end());
+
+    // -------------------------------------------------------------------
+    // 4. Try solving pairs in sorted order until a solvable one is found
+    // -------------------------------------------------------------------
+    for (const auto &tp : pairs)
+    {
+        vector<pair<int,int>> path = bfsPath(board, tp.a, tp.b);
+
+        if (!path.empty()) {
+            // BFS succeeded → this pair is solvable
+            return path;
+        }
+
+        // BFS failed → try next pair
+    }
+
+    // -------------------------------------------------------------------
+    // 5. Nothing solvable
+    // -------------------------------------------------------------------
+    return {};  
 }
 
 int countLines(const std::string &filePath) {
@@ -146,6 +304,8 @@ int countLines(const std::string &filePath) {
 
   return count;
 }
+
+
 int main() {
   auto files = getLevelFiles("levels");
   if (files.empty()) {
@@ -281,8 +441,12 @@ int main() {
     else if (state == AI_TURN) {
 
       // Call your algorithm
-      board.makeMove(algorithm());
+      auto ai_path = algorithm(board);
+      if (!ai_path.empty())
+          board.makeMove(ai_path);
+
       state = HUMAN_TURN;
+
     }
 
     // -----------------------------
