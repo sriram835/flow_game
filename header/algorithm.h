@@ -1,20 +1,27 @@
-
 #ifndef ALGO_H
 #define ALGO_H
+
 #include "board.h"
 #include "globals.h"
 
-vector<vector<int>> getTerminals(Board board);
+#include <vector>
+#include <utility>
 
+// Top-level called by main.cpp
+std::vector<std::pair<int, int>> algorithm(const Board &board);
+
+// Utilities (kept for compatibility & testing)
+std::vector<std::vector<int>> getTerminals(Board board);
 int randomInt(int upper_bound);
-bool colorAlreadyAdded(int color, vector<vector<int>> colors);
+bool colorAlreadyAdded(int color, std::vector<std::vector<int>> colors);
 
-vector<pair<int, int>> getNeighbors(int color, int row, int col,
-                                    const Board &board,
-                                    const vector<vector<bool>> &visited);
+// Original-like helpers (reused/ported)
+std::vector<std::pair<int, int>> getNeighbors(int color, int row, int col,
+                                              const Board &board,
+                                              const std::vector<std::vector<bool>> &visited);
 
-vector<pair<int, int>>
+std::vector<std::pair<int, int>>
 reconstructPath(int end_row, int end_col,
-                const vector<vector<pair<int, int>>> &parents);
-vector<pair<int, int>> bfs(Board board);
+                const std::vector<std::vector<std::pair<int, int>>> &parents);
+
 #endif

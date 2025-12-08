@@ -108,7 +108,7 @@ void drawBoard(const Board &b) {
     drawPath(path, color);
   }
 }
-
+ 
 void drawDragPath(Board board) {
   if (dragPath.empty()) {
     return;
@@ -118,11 +118,6 @@ void drawDragPath(Board board) {
   int col = index.second;
   int color_int = board.board[row][col].color;
   drawPath(dragPath, color_map[color_int]);
-}
-
-std::vector<std::pair<int, int>> algorithm(Board board) {
-  vector<pair<int, int>> path = bfs(board);
-  return path;
 }
 
 int countLines(const std::string &filePath) {
@@ -174,7 +169,7 @@ int main() {
                             PADDING + CELL_SIZE * GRID + 150, 200, 60};
 
   Board board;
-
+  board.init(GRID);     
   board.loadFromFile(files[choice]);
 
   for (int row = 0; row < GRID; row++) {
@@ -274,10 +269,24 @@ int main() {
     // AI TURN LOGIC
     // -----------------------------
     else if (state == AI_TURN) {
+      // Call the algorithm once and inspect the returned path
+      auto path = algorithm(board);
 
-      // Call your algorithm
-      board.makeMove(algorithm(board));
-      state = HUMAN_TURN;
+      if (path.empty()) {
+        // AI couldn't find any move — print a message and return control to human.
+        // (You could keep the state in AI_TURN to retry, but that would stall the UI.)
+        cout << "AI: no path found (algorithm returned empty). Human may try another move.\n";
+        state = HUMAN_TURN;
+      } else {
+        // Attempt to apply the path. makeMove will print 'invalid path' if that happens.
+        bool ok = board.makeMove(path);
+        if (!ok) {
+          cout << "AI: algorithm returned a path but board.makeMove rejected it (invalid path).\n";
+          // leave a helpful hint — isValidPath() already prints more details.
+        }
+        // Either way, return control to human (AI's turn is finished).
+        state = HUMAN_TURN;
+      }
     }
 
     // -----------------------------

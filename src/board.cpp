@@ -1,6 +1,7 @@
 #include "board.h"
 
-bool Board::makeMove(vector<pair<int, int>> indexes) {
+bool Board::makeMove(const std::vector<std::pair<int, int>> &indexes) {
+  // (body unchanged)
   for (auto path : saved_paths) {
     for (auto index : path) {
       cout << index.first << " " << index.second << "\t";
@@ -9,7 +10,6 @@ bool Board::makeMove(vector<pair<int, int>> indexes) {
   }
   if (!isValidPath(indexes)) {
     cout << "invalid path\n";
-
     return false;
   }
 
@@ -45,14 +45,14 @@ bool Board::makeMove(vector<pair<int, int>> indexes) {
   return true;
 }
 
-bool Board::isValidPath(vector<pair<int, int>> indexes) {
-  int n = indexes.size();
+bool Board::isValidPath(const vector<pair<int,int>> &path) const {
+  int n = path.size();
   if (n <= 1) {
     return false;
   }
 
-  auto start = indexes[0];
-  auto end = indexes[n - 1];
+  auto start = path[0];
+  auto end = path[n - 1];
 
   int start_row = start.first;
   int start_col = start.second;
@@ -77,22 +77,22 @@ bool Board::isValidPath(vector<pair<int, int>> indexes) {
     cout << "not same color\n";
     return false;
   }
-  int color = start_cell.color;
 
   // Track visited cells to forbid revisits
-  std::vector<std::vector<bool>> visited(GRID, std::vector<bool>(GRID, false));
+  vector<vector<bool>> visited(GRID, vector<bool>(GRID, false));
 
   for (int i = 0; i < n; ++i) {
-    int x = indexes[i].first;
-    int y = indexes[i].second;
+    int x = path[i].first;
+    int y = path[i].second;
 
     // Bounds check
     if (x < 0 || x >= GRID || y < 0 || y >= GRID)
       return false;
 
     // No revisits
-    if (visited[x][y])
+    if (visited[x][y]) {
       return false;
+    }
     visited[x][y] = true;
 
     Cell c = board[x][y];
@@ -110,23 +110,16 @@ bool Board::isValidPath(vector<pair<int, int>> indexes) {
       }
     }
 
-    // Intermediate cells must not be terminals
-    if (i != 0 && i != n - 1 && c.isTerminal) {
-
-      cout << "Terminal in middle\n";
-      return false;
-    }
-
     // Check adjacency between consecutive cells
     if (i > 0) {
-      int px = indexes[i - 1].first;
-      int py = indexes[i - 1].second;
+      int px = path[i - 1].first;
+      int py = path[i - 1].second;
       int dx = abs(x - px);
       int dy = abs(y - py);
 
-      // Must move exactly one step in manhattan distance
+      // Must be exactly one step
       if (!((dx == 1 && dy == 0) || (dx == 0 && dy == 1))) {
-        cout << "Not adjancent\n";
+        cout << "Not adjacent\n";
         return false;
       }
     }
@@ -174,22 +167,19 @@ bool Board::loadFromFile(const std::string &filename) {
   return true;
 }
 
-bool Board::removePath(vector<pair<int, int>> path) {
-  for (int i = 0; i < path.size(); i++) {
-
+bool Board::removePath(const std::vector<std::pair<int, int>> &path) {
+  for (int i = 0; i < (int)path.size(); i++) {
     int row = path[i].first;
     int col = path[i].second;
-
     Cell &c = board[row][col];
-
     if (!c.isTerminal) {
       c.color = 0;
     }
     c.hasPipe = false;
   }
-
   return true;
 }
+
 
 void Board::undoMove() {
   auto path = saved_paths.back();
