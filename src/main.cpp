@@ -39,8 +39,6 @@ static const int PADDING = 100;
 enum GameState { HUMAN_TURN, AI_TURN };
 
 GameState state = HUMAN_TURN;
-
-bool isDragging = false;
 std::vector<std::pair<int, int>> dragPath;
 int start_row = -1, start_col = -1;
 
@@ -237,8 +235,7 @@ int main() {
                 Cell &c = board.board[row][col];
                 if (c.isTerminal) {
                     isDragging = true;
-                    pathLocked = false;
-                    directionLocked = false;
+                    // directionLocked = false;
                     dragPath.clear();
                     dragPath.push_back({row, col});
                     start_row = row;
@@ -260,17 +257,6 @@ int main() {
             // Must be exactly 1 step
             if (!((abs(dx) == 1 && dy == 0) || (abs(dy) == 1 && dx == 0)))
                 goto END_DRAG;
-
-            // Lock direction on first move
-            if (!directionLocked) {
-                dir_dx = dx;
-                dir_dy = dy;
-                directionLocked = true;
-            }
-            // No backtracking
-            else if (dx == -dir_dx && dy == -dir_dy) {
-                goto END_DRAG;
-            }
 
             // No self overlap
             for (auto &p : dragPath)
@@ -308,6 +294,7 @@ int main() {
             // Commit ONLY if destination reached
             if (pathLocked) {
                 board.makeMove(dragPath);
+                state = AI_TURN;
             }
 
             dragPath.clear();
