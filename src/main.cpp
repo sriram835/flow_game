@@ -3,6 +3,11 @@
 #include "raylib.h"
 #include <vector>
 
+int dir_dx = 0, dir_dy = 0;
+bool directionLocked = false;
+bool pathLocked = false;
+bool isDragging = false;
+
 std::unordered_map<int, Color> color_map = {
     {1, Color{255, 0, 0, 255}},   // Red
     {2, Color{0, 255, 0, 255}},   // Green
@@ -221,58 +226,94 @@ int main() {
     // -----------------------------
     if (state == HUMAN_TURN) {
 
-      int mx = GetMouseX();
-      int my = GetMouseY();
-      int row = mouseToGridY(my);
-      int col = mouseToGridX(mx);
+        int mx = GetMouseX();
+        int my = GetMouseY();
+        int row = mouseToGridY(my);
+        int col = mouseToGridX(mx);
 
-      // Start drag
-      if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        cout << row << " " << col << "\n";
-        if (row != -1 && col != -1) {
-          Cell &c = board.board[row][col];
+        // Start drag
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            if (row != -1 && col != -1) {
+                Cell &c = board.board[row][col];
+                if (c.isTerminal) {
+                    isDragging = true;
+                    pathLocked = false;
+                    directionLocked = false;
+                    dragPath.clear();
+                    dragPath.push_back({row, col});
+                    start_row = row;
+                    start_col = col;
+                }
+            }
+        }
 
-          if (c.isTerminal) {
-            isDragging = true;
+        // Continue drag
+        if (isDragging && IsMouseButtonDown(MOUSE_LEFT_BUTTON) && !pathLocked) {
+
+            if (row == -1 || col == -1)
+                goto END_DRAG;
+
+            auto last = dragPath.back();
+            int dx = row - last.first;
+            int dy = col - last.second;
+
+            // Must be exactly 1 step
+            if (!((abs(dx) == 1 && dy == 0) || (abs(dy) == 1 && dx == 0)))
+                goto END_DRAG;
+
+            // Lock direction on first move
+            if (!directionLocked) {
+                dir_dx = dx;
+                dir_dy = dy;
+                directionLocked = true;
+            }
+            // No backtracking
+            else if (dx == -dir_dx && dy == -dir_dy) {
+                goto END_DRAG;
+            }
+
+            // No self overlap
+            for (auto &p : dragPath)
+                if (p.first == row && p.second == col)
+                    goto END_DRAG;
+
+            Cell &next = board.board[row][col];
+            Cell &startCell = board.board[start_row][start_col];
+
+            // No overlapping other pipes
+            if (next.hasPipe)
+                goto END_DRAG;
+
+            // Terminal rules
+            if (next.isTerminal) {
+                if (next.color != startCell.color)
+                    goto END_DRAG;
+
+                // Correct destination → lock
+                dragPath.push_back({row, col});
+                pathLocked = true;
+                goto END_DRAG;
+            }
+
+            // Normal move
+            dragPath.push_back({row, col});
+        }
+
+    END_DRAG:
+
+        // End drag
+        if (isDragging && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+            isDragging = false;
+
+            // Commit ONLY if destination reached
+            if (pathLocked) {
+                board.makeMove(dragPath);
+            }
+
             dragPath.clear();
-            dragPath.push_back({row, col});
-            start_col = col;
-            start_row = row;
-          }
+            pathLocked = false;
+            directionLocked = false;
         }
-      }
-
-      // Continue drag
-      if (isDragging && IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
-        if (row != -1 && col != -1) {
-
-          auto last = dragPath.back();
-          bool isNew = !(last.first == row && last.second == col);
-          bool adjacent = (abs(last.first - row) == 1 && last.second == col) ||
-                          (abs(last.second - col) == 1 && last.first == row);
-
-          if (isNew && adjacent) {
-            dragPath.push_back({row, col});
-          }
-        }
-      }
-
-      // End drag → human move complete
-      if (isDragging && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-        isDragging = false;
-
-        if (!dragPath.empty()) {
-          // Attempt move
-          bool ok = board.makeMove(dragPath);
-
-          if (ok) {
-            // Move accepted → AI turn begins
-            state = AI_TURN;
-          }
-        }
-
-        dragPath.clear();
-      }
     }
 
     // -----------------------------
