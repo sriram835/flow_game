@@ -1,9 +1,11 @@
 #include "board.h"
 #include "globals.h"
 #include "raylib.h"
+#include <utility>
 #include <vector>
 #include <queue>
 #include <algorithm>
+
 
 std::unordered_map<int, Color> color_map = {
     {1, Color{255, 0, 0, 255}},   // Red
@@ -29,6 +31,10 @@ std::vector<std::string> getLevelFiles(const std::string &folderPath) {
 }
 
 int GRID = -1;
+int dir_dx = 0, dir_dy = 0;
+bool directionLocked = false;
+bool pathLocked = false;
+bool isDragging = false;
 
 static const int CELL_SIZE = 80;
 static const int PADDING = 100;
@@ -37,7 +43,6 @@ enum GameState { HUMAN_TURN, AI_TURN };
 
 GameState state = HUMAN_TURN;
 
-bool isDragging = false;
 std::vector<std::pair<int, int>> dragPath;
 int start_row = -1, start_col = -1;
 
@@ -133,6 +138,33 @@ double distanceEuclid(pair<int,int> p1, pair<int,int> p2) {
     double dx = p1.first - p2.first;
     double dy = p1.second - p2.second;
     return sqrt(dx*dx + dy*dy);
+}
+
+void shell_sort(vector<TerminalPair>&);
+
+void shell_sort(std::vector<TerminalPair>& pairs)
+{
+    int hseq[] = {31, 15, 7,3,1};  //all praise hibbard sequence
+    int n = pairs.size();
+
+    for (int k = 0; k <= 4; k++)
+    {
+        int gap = hseq[k];
+        if (gap >= n)
+        {
+          continue;
+        }
+        for (int i = gap; i < n; i++)  //We can let the for loop take care of gap >= n, but one less assignment
+        {
+            TerminalPair temp = pairs[i]; 
+            int j;
+            for (j = i; j >= gap && pairs[j - gap].dist > temp.dist; j -= gap)
+            {
+                pairs[j] = pairs[j - gap]; //shifttinhggkhubkhbl
+            }
+            pairs[j] = temp;
+        }
+    }
 }
 
 vector<pair<int,int>> bfsPath(const Board &board, pair<int,int> start, pair<int,int> goal)
@@ -251,10 +283,7 @@ vector<pair<int,int>> algorithm(Board &board)
     // -------------------------------------------------------------------
     // 2. Sort terminal pairs by Euclidean distance (smallest first)
     // -------------------------------------------------------------------
-    std::sort(pairs.begin(), pairs.end(),
-              [](const TerminalPair &x, const TerminalPair &y){
-                  return x.dist < y.dist;
-              });
+    shell_sort(pairs);
 
     // -------------------------------------------------------------------
     // 3. Remove already-solved terminal pairs (solved by human or AI)
@@ -388,52 +417,77 @@ int main() {
 
       // Start drag
       if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        cout << row << " " << col << "\n";
-        if (row != -1 && col != -1) {
-          Cell &c = board.board[row][col];
-
-          if (c.isTerminal) {
-            isDragging = true;
-            dragPath.clear();
-            dragPath.push_back({row, col});
-            start_col = col;
-            start_row = row;
+          if (row != -1 && col != -1) {
+              Cell &c = board.board[row][col];
+              if (c.isTerminal) {
+                  isDragging = true;
+                  // directionLocked = false;
+                  dragPath.clear();
+                  dragPath.push_back({row, col});
+                  start_row = row;
+                  start_col = col;
+              }
           }
-        }
       }
 
       // Continue drag
-      if (isDragging && IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
-        if (row != -1 && col != -1) {
+      if (isDragging && IsMouseButtonDown(MOUSE_LEFT_BUTTON) && !pathLocked) {
+
+          if (row == -1 || col == -1)
+              goto END_DRAG;
 
           auto last = dragPath.back();
-          bool isNew = !(last.first == row && last.second == col);
-          bool adjacent = (abs(last.first - row) == 1 && last.second == col) ||
-                          (abs(last.second - col) == 1 && last.first == row);
+          int dx = row - last.first;
+          int dy = col - last.second;
 
-          if (isNew && adjacent) {
-            dragPath.push_back({row, col});
+          // Must be exactly 1 step
+          if (!((abs(dx) == 1 && dy == 0) || (abs(dy) == 1 && dx == 0)))
+              goto END_DRAG;
+
+          // No self overlap
+          for (auto &p : dragPath)
+              if (p.first == row && p.second == col)
+                  goto END_DRAG;
+
+          Cell &next = board.board[row][col];
+          Cell &startCell = board.board[start_row][start_col];
+
+          // No overlapping other pipes
+          if (next.hasPipe)
+              goto END_DRAG;
+
+          // Terminal rules
+          if (next.isTerminal) {
+              if (next.color != startCell.color)
+                  goto END_DRAG;
+
+              // Correct destination → lock
+              dragPath.push_back({row, col});
+              pathLocked = true;
+              goto END_DRAG;
           }
-        }
+
+          // Normal move
+          dragPath.push_back({row, col});
       }
 
-      // End drag → human move complete
+  END_DRAG:
+
+      // End drag
       if (isDragging && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-        isDragging = false;
+          isDragging = false;
 
-        if (!dragPath.empty()) {
-          // Attempt move
-          bool ok = board.makeMove(dragPath);
-
-          if (ok) {
-            // Move accepted → AI turn begins
-            state = AI_TURN;
+          // Commit ONLY if destination reached
+          if (pathLocked) {
+              board.makeMove(dragPath);
+              state = AI_TURN;
           }
-        }
 
-        dragPath.clear();
+          dragPath.clear();
+          pathLocked = false;
+          directionLocked = false;
       }
-    }
+  }
 
     // -----------------------------
     // AI TURN LOGIC
