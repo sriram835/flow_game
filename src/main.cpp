@@ -6,7 +6,6 @@
 #include <queue>
 #include <algorithm>
 
-
 std::unordered_map<int, Color> color_map = {
     {1, Color{255, 0, 0, 255}},   // Red
     {2, Color{0, 255, 0, 255}},   // Green
@@ -30,14 +29,15 @@ std::vector<std::string> getLevelFiles(const std::string &folderPath) {
   return files;
 }
 
-int GRID = -1;
 int dir_dx = 0, dir_dy = 0;
 bool directionLocked = false;
 bool pathLocked = false;
 bool isDragging = false;
-
-static const int CELL_SIZE = 80;
-static const int PADDING = 100;
+int GRID_OFFSET_X = 0;
+int GRID_OFFSET_Y = 0;
+int GRID=-1;
+static int CELL_SIZE = 80;
+static int PADDING = 100;
 
 enum GameState { HUMAN_TURN, AI_TURN };
 
@@ -360,15 +360,35 @@ int main() {
   if (GRID == -1) {
     exit(EXIT_FAILURE);
   }
+  // -------------------------------
+  // Dynamic scaling (SAFE VERSION)
+  // -------------------------------
+  int screenW = GetMonitorWidth(0);
+  int screenH = GetMonitorHeight(0);
 
-  Rectangle undo_button = {PADDING + (int)(CELL_SIZE * GRID / 2) - 100,
-                           PADDING + CELL_SIZE * GRID + 50, 200, 60};
+  int MAX_UI_SPACE = 300;
 
-  Rectangle reset_button = {PADDING + (int)(CELL_SIZE * GRID / 2) - 100,
-                            PADDING + CELL_SIZE * GRID + 150, 200, 60};
+  // Prevent division issues
+  if (GRID <= 0) GRID = 1;
+
+  int availableW = screenW - 2 * PADDING;
+  int availableH = screenH - 2 * PADDING - MAX_UI_SPACE;
+
+  // Safety clamp
+  availableW = std::max(availableW, GRID);
+  availableH = std::max(availableH, GRID);
+
+  int cellW = availableW / GRID;
+  int cellH = availableH / GRID;
+
+  CELL_SIZE = std::min(cellW, cellH);
+
+  // HARD safety limits (important)
+  if (CELL_SIZE < 60) CELL_SIZE = 60;
+  if (CELL_SIZE > 80) CELL_SIZE = 80;
 
   Board board;
-
+  board.init(GRID); 
   board.loadFromFile(files[choice]);
 
   for (int row = 0; row < GRID; row++) {
@@ -378,9 +398,59 @@ int main() {
     cout << "\n";
   }
 
-  InitWindow(2 * PADDING + GRID * CELL_SIZE,
-             PADDING * 2 + CELL_SIZE * GRID + 300, "Flow Game - Raylib");
+  int windowW = 2 * PADDING + GRID * CELL_SIZE;
+  int windowH = 2 * PADDING + GRID * CELL_SIZE + 300;
+
+  // Hard minimums (GLFW requires positive size)
+  if (windowW < 600) windowW = 600;
+  if (windowH < 500) windowH = 500;
+
+  // Hard maximums WITHOUT monitor query
+  if (windowW > 1800) windowW = 1800;
+  if (windowH > 1000)  windowH = 1000;
+
+  SetConfigFlags(FLAG_WINDOW_TOPMOST);
+  InitWindow(windowW, windowH, "Flow Game - Raylib");
+  SetWindowPosition(20, 20);
   SetTargetFPS(60);
+
+  // --------------------------------
+  // Center the window
+  // --------------------------------
+
+  int Monitor = GetCurrentMonitor();
+  int screen_Width = GetMonitorWidth(Monitor);
+  int screen_Height = GetMonitorHeight(Monitor);
+
+  int posX = (screen_Width-windowW)/2;
+  int posY = (screen_Height-windowH)/2;
+  
+  if(posX<0) posX = 0;
+  if(posY<0) posY = 0;
+  SetWindowPosition(posX,posY);
+
+  // --------------------------------
+  // Center the grid inside the window
+  // --------------------------------
+  int gridPixelSize = GRID * CELL_SIZE;
+
+  GRID_OFFSET_X = (GetScreenWidth()  - gridPixelSize) / 2;
+  GRID_OFFSET_Y = (GetScreenHeight() - gridPixelSize - 300) / 2;
+
+  // Keep some space at the top for aesthetics
+  if (GRID_OFFSET_Y < 40) GRID_OFFSET_Y = 40;
+
+  Rectangle undo_button = {
+    (GetScreenWidth() - 200) / 2,
+    GRID_OFFSET_Y + gridPixelSize + 40,
+    200, 60
+  };
+
+  Rectangle reset_button = {
+    (GetScreenWidth() - 200) / 2,
+    GRID_OFFSET_Y + gridPixelSize + 120,
+    200, 60
+  };
 
   Font roboto_font =
       LoadFontEx("./resources/fonts/Roboto-Black.ttf", 64, NULL, 250);
@@ -410,84 +480,84 @@ int main() {
     // -----------------------------
     if (state == HUMAN_TURN) {
 
-      int mx = GetMouseX();
-      int my = GetMouseY();
-      int row = mouseToGridY(my);
-      int col = mouseToGridX(mx);
+        int mx = GetMouseX();
+        int my = GetMouseY();
+        int row = mouseToGridY(my);
+        int col = mouseToGridX(mx);
 
-      // Start drag
-      if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-          if (row != -1 && col != -1) {
-              Cell &c = board.board[row][col];
-              if (c.isTerminal) {
-                  isDragging = true;
-                  // directionLocked = false;
-                  dragPath.clear();
-                  dragPath.push_back({row, col});
-                  start_row = row;
-                  start_col = col;
-              }
-          }
-      }
+        // Start drag
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            if (row != -1 && col != -1) {
+                Cell &c = board.board[row][col];
+                if (c.isTerminal) {
+                    isDragging = true;
+                    // directionLocked = false;
+                    dragPath.clear();
+                    dragPath.push_back({row, col});
+                    start_row = row;
+                    start_col = col;
+                }
+            }
+        }
 
-      // Continue drag
-      if (isDragging && IsMouseButtonDown(MOUSE_LEFT_BUTTON) && !pathLocked) {
+        // Continue drag
+        if (isDragging && IsMouseButtonDown(MOUSE_LEFT_BUTTON) && !pathLocked) {
 
-          if (row == -1 || col == -1)
-              goto END_DRAG;
+            if (row == -1 || col == -1)
+                goto END_DRAG;
 
-          auto last = dragPath.back();
-          int dx = row - last.first;
-          int dy = col - last.second;
+            auto last = dragPath.back();
+            int dx = row - last.first;
+            int dy = col - last.second;
 
-          // Must be exactly 1 step
-          if (!((abs(dx) == 1 && dy == 0) || (abs(dy) == 1 && dx == 0)))
-              goto END_DRAG;
+            // Must be exactly 1 step
+            if (!((abs(dx) == 1 && dy == 0) || (abs(dy) == 1 && dx == 0)))
+                goto END_DRAG;
 
-          // No self overlap
-          for (auto &p : dragPath)
-              if (p.first == row && p.second == col)
-                  goto END_DRAG;
+            // No self overlap
+            for (auto &p : dragPath)
+                if (p.first == row && p.second == col)
+                    goto END_DRAG;
 
-          Cell &next = board.board[row][col];
-          Cell &startCell = board.board[start_row][start_col];
+            Cell &next = board.board[row][col];
+            Cell &startCell = board.board[start_row][start_col];
 
-          // No overlapping other pipes
-          if (next.hasPipe)
-              goto END_DRAG;
+            // No overlapping other pipes
+            if (next.hasPipe)
+                goto END_DRAG;
 
-          // Terminal rules
-          if (next.isTerminal) {
-              if (next.color != startCell.color)
-                  goto END_DRAG;
+            // Terminal rules
+            if (next.isTerminal) {
+                if (next.color != startCell.color)
+                    goto END_DRAG;
 
-              // Correct destination → lock
-              dragPath.push_back({row, col});
-              pathLocked = true;
-              goto END_DRAG;
-          }
+                // Correct destination → lock
+                dragPath.push_back({row, col});
+                pathLocked = true;
+                goto END_DRAG;
+            }
 
-          // Normal move
-          dragPath.push_back({row, col});
-      }
+            // Normal move
+            dragPath.push_back({row, col});
+        }
 
-  END_DRAG:
+    END_DRAG:
 
-      // End drag
-      if (isDragging && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-          isDragging = false;
+        // End drag
+        if (isDragging && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+            isDragging = false;
 
-          // Commit ONLY if destination reached
-          if (pathLocked) {
-              board.makeMove(dragPath);
-              state = AI_TURN;
-          }
+            // Commit ONLY if destination reached
+            if (pathLocked) {
+                board.makeMove(dragPath);
+                state = AI_TURN;
+            }
 
-          dragPath.clear();
-          pathLocked = false;
-          directionLocked = false;
-      }
-  }
+            dragPath.clear();
+            pathLocked = false;
+            directionLocked = false;
+        }
+    }
 
     // -----------------------------
     // AI TURN LOGIC

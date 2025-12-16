@@ -20,6 +20,12 @@ public:
   }
   vector<vector<Cell>> board;
   vector<vector<pair<int, int>>> saved_paths;
+  vector<pair<pair<int,int>, pair<int,int>>> terminals;
+  int N=0;
+  void init(int n){
+    N=n;
+    board.assign(N,vector<Cell>(N));
+  }
   bool makeMove(vector<pair<int, int>>);
   bool isValidPath(vector<pair<int, int>>);
   bool loadFromFile(const std::string &filename);
