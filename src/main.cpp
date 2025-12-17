@@ -1,8 +1,18 @@
-#include "algorithm.h"
 #include "board.h"
 #include "globals.h"
 #include "raylib.h"
+#include <utility>
 #include <vector>
+#include <queue>
+#include <algorithm>
+
+int dir_dx = 0, dir_dy = 0;
+bool directionLocked = false;
+bool pathLocked = false;
+bool isDragging = false;
+int GRID_OFFSET_X = 0;
+int GRID_OFFSET_Y = 0;
+
 
 std::unordered_map<int, Color> color_map = {
     {1, Color{255, 0, 0, 255}},   // Red
@@ -11,8 +21,9 @@ std::unordered_map<int, Color> color_map = {
     {4, Color{255, 165, 0, 255}}, // Orange
     {5, Color{255, 0, 255, 255}}, // Magenta / Pink
     {6, Color{0, 255, 255, 255}}, // Cyan / Aqua
-    {7, Color{255, 255, 0, 255}}, // Yellow
-    {8, Color{112, 55, 67, 255}}};
+    {7, Color{255, 255, 0, 255}},  // Yellow
+    {8, Color{112, 55, 67, 255}}
+};
 
 std::vector<std::string> getLevelFiles(const std::string &folderPath) {
   std::vector<std::string> files;
@@ -28,19 +39,17 @@ std::vector<std::string> getLevelFiles(const std::string &folderPath) {
 
 int GRID = -1;
 
-static const int CELL_SIZE = 80;
-static const int PADDING = 100;
+int CELL_SIZE = 80;
+int PADDING = 60;
 
 enum GameState { HUMAN_TURN, AI_TURN };
 
 GameState state = HUMAN_TURN;
-
-bool isDragging = false;
 std::vector<std::pair<int, int>> dragPath;
 int start_row = -1, start_col = -1;
 
 int mouseToGridX(int mx) {
-  mx -= PADDING;
+  mx -= GRID_OFFSET_X;
   int gx = mx / CELL_SIZE;
   if (gx < 0 || gx >= GRID)
     return -1;
@@ -48,7 +57,7 @@ int mouseToGridX(int mx) {
 }
 
 int mouseToGridY(int my) {
-  my -= PADDING;
+  my -= GRID_OFFSET_Y;
   int gy = my / CELL_SIZE;
   if (gy < 0 || gy >= GRID)
     return -1;
@@ -67,10 +76,16 @@ void drawPath(const vector<pair<int, int>> &path, const Color col) {
   for (int i = 0; i < path.size() - 1; i++) {
     int r1 = path[i].first, c1 = path[i].second;
     int r2 = path[i + 1].first, c2 = path[i + 1].second;
-    Vector2 p1 = {c1 * CELL_SIZE + CELL_SIZE * 0.5f + PADDING,
-                  r1 * CELL_SIZE + CELL_SIZE * 0.5f + PADDING};
-    Vector2 p2 = {c2 * CELL_SIZE + CELL_SIZE * 0.5f + PADDING,
-                  r2 * CELL_SIZE + CELL_SIZE * 0.5f + PADDING};
+    Vector2 p1 = {
+      GRID_OFFSET_X + c1 * CELL_SIZE + CELL_SIZE * 0.5f,
+      GRID_OFFSET_Y + r1 * CELL_SIZE + CELL_SIZE * 0.5f
+    };
+
+    Vector2 p2 = {
+      GRID_OFFSET_X + c2 * CELL_SIZE + CELL_SIZE * 0.5f,
+      GRID_OFFSET_Y + r2 * CELL_SIZE + CELL_SIZE * 0.5f
+    };
+
     DrawCircleV(p1, thickness * 0.5f, col);
     DrawCircleV(p2, thickness * 0.5f, col);
     DrawLineEx(p1, p2, thickness, col);
@@ -87,14 +102,20 @@ void drawBoard(const Board &b) {
 
       Color col = Color{0, 0, 0, 255};
 
-      DrawRectangle(PADDING + y * CELL_SIZE, PADDING + x * CELL_SIZE,
-
-                    CELL_SIZE - 2, CELL_SIZE - 2, col);
+      DrawRectangle(
+        GRID_OFFSET_X + y * CELL_SIZE,
+        GRID_OFFSET_Y + x * CELL_SIZE,
+        CELL_SIZE - 2,
+        CELL_SIZE - 2,
+        col
+      );
 
       if (c.isTerminal) {
         col = color_map[b.board[x][y].color];
-        Vector2 point = {y * CELL_SIZE + CELL_SIZE * 0.5f + PADDING,
-                         x * CELL_SIZE + CELL_SIZE * 0.5f + PADDING};
+        Vector2 point = {
+          GRID_OFFSET_X + y * CELL_SIZE + CELL_SIZE * 0.5f,
+          GRID_OFFSET_Y + x * CELL_SIZE + CELL_SIZE * 0.5f
+        };
         DrawCircleV(point, thickness * 0.8f, col);
       }
     }
@@ -108,7 +129,7 @@ void drawBoard(const Board &b) {
     drawPath(path, color);
   }
 }
- 
+
 void drawDragPath(Board board) {
   if (dragPath.empty()) {
     return;
@@ -118,6 +139,196 @@ void drawDragPath(Board board) {
   int col = index.second;
   int color_int = board.board[row][col].color;
   drawPath(dragPath, color_map[color_int]);
+}
+
+struct TerminalPair {
+    int color;
+    pair<int,int> a;
+    pair<int,int> b;
+    double dist;
+};
+
+void shell_sort(vector<TerminalPair>&);
+
+double distanceEuclid(pair<int,int> p1, pair<int,int> p2) {
+    double dx = p1.first - p2.first;
+    double dy = p1.second - p2.second;
+    return sqrt(dx*dx + dy*dy);
+}
+
+void shell_sort(std::vector<TerminalPair>& pairs)
+{
+    int hseq[] = {31, 15, 7,3,1};  //all praise hibbard sequence
+    int n = pairs.size();
+
+    for (int k = 0; k <= 4; k++)
+    {
+        int gap = hseq[k];
+        if (gap >= n)
+        {
+          continue;
+        }
+        for (int i = gap; i < n; i++)  //We can let the for loop take care of gap >= n, but one less assignment
+        {
+            TerminalPair temp = pairs[i]; 
+            int j;
+            for (j = i; j >= gap && pairs[j - gap].dist > temp.dist; j -= gap)
+            {
+                pairs[j] = pairs[j - gap]; //shifttinhggkhubkhbl
+            }
+            pairs[j] = temp;
+        }
+    }
+}
+
+vector<pair<int,int>> bfsPath(const Board &board, pair<int,int> start, pair<int,int> goal)
+{
+    vector<vector<bool>> visited(GRID, vector<bool>(GRID,false));
+    queue<pair<int,int>> q;
+    unordered_map<int, pair<int,int>> parent;
+
+    auto encode = [&](int r, int c){ return r * GRID + c; };
+
+    q.push(start);
+    visited[start.first][start.second] = true;
+
+    int dr[4] = {1,-1,0,0};
+    int dc[4] = {0,0,1,-1};
+
+    while (!q.empty()) {
+        auto [r, c] = q.front();
+        q.pop();
+
+        if (r == goal.first && c == goal.second)
+            break;
+
+        for (int k = 0; k < 4; k++) {
+            int nr = r + dr[k];
+            int nc = c + dc[k];
+
+            // Bounds
+            if (nr < 0 || nr >= GRID || nc < 0 || nc >= GRID)
+                continue;
+
+            const Cell &cell = board.board[nr][nc];
+
+            // Forbidden:
+            // - other pipes
+            // - terminals of other colors
+            if (cell.hasPipe)
+                continue;
+            if (cell.isTerminal && !(nr == goal.first && nc == goal.second))
+                continue;
+
+            if (!visited[nr][nc]) {
+                visited[nr][nc] = true;
+                parent[encode(nr,nc)] = std::make_pair(r, c);
+                q.push({nr,nc});
+            }
+        }
+    }
+
+    // Reconstruct path
+    vector<pair<int,int>> path;
+
+    if (!visited[goal.first][goal.second])
+        return path;  // no path, return empty
+
+    pair<int,int> cur = goal;
+    while (!(cur.first == start.first && cur.second == start.second)) {
+        path.push_back(cur);
+        cur = parent[encode(cur.first, cur.second)];
+    }
+    path.push_back(start);
+    reverse(path.begin(), path.end());
+    return path;
+}
+
+bool isAlreadySolved(const Board &board, pair<int,int> a, pair<int,int> b)
+{
+    for (const auto &path : board.saved_paths)
+    {
+        if (path.size() < 2) continue;
+
+        auto start = path.front();
+        auto end   = path.back();
+
+        if ((start == a && end == b) ||
+            (start == b && end == a))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+vector<pair<int,int>> algorithm(Board &board)
+{
+    // -------------------------------------------------------------------
+    // 1. Collect all terminal pairs by color
+    // -------------------------------------------------------------------
+    unordered_map<int, vector<pair<int,int>>> terminals;
+
+    for (int r = 0; r < GRID; r++) {
+        for (int c = 0; c < GRID; c++) {
+            const Cell &cell = board.board[r][c];
+            if (cell.isTerminal)
+                terminals[cell.color].push_back({r,c});
+        }
+    }
+
+    // Build a list of pairs
+    vector<TerminalPair> pairs;
+
+    for (auto &kv : terminals) {
+        auto &vec = kv.second;
+        if (vec.size() != 2)
+            continue;
+
+        TerminalPair tp;
+        tp.color = kv.first;
+        tp.a = vec[0];
+        tp.b = vec[1];
+        tp.dist = distanceEuclid(tp.a, tp.b);
+
+        pairs.push_back(tp);
+    }
+
+    // -------------------------------------------------------------------
+    // 2. Sort terminal pairs by Euclidean distance (smallest first)
+    // -------------------------------------------------------------------
+    shell_sort(pairs);
+
+    // -------------------------------------------------------------------
+    // 3. Remove already-solved terminal pairs (solved by human or AI)
+    // -------------------------------------------------------------------
+    pairs.erase(
+        remove_if(pairs.begin(), pairs.end(),
+                  [&](const TerminalPair &tp)
+                  {
+                      return isAlreadySolved(board, tp.a, tp.b);
+                  }),
+        pairs.end());
+
+    // -------------------------------------------------------------------
+    // 4. Try solving pairs in sorted order until a solvable one is found
+    // -------------------------------------------------------------------
+    for (const auto &tp : pairs)
+    {
+        vector<pair<int,int>> path = bfsPath(board, tp.a, tp.b);
+
+        if (!path.empty()) {
+            // BFS succeeded → this pair is solvable
+            return path;
+        }
+
+        // BFS failed → try next pair
+    }
+
+    // -------------------------------------------------------------------
+    // 5. Nothing solvable
+    // -------------------------------------------------------------------
+    return {};  
 }
 
 int countLines(const std::string &filePath) {
@@ -136,6 +347,8 @@ int countLines(const std::string &filePath) {
 
   return count;
 }
+
+
 int main() {
   auto files = getLevelFiles("levels");
   if (files.empty()) {
@@ -161,27 +374,96 @@ int main() {
   if (GRID == -1) {
     exit(EXIT_FAILURE);
   }
-
-  Rectangle undo_button = {PADDING + (int)(CELL_SIZE * GRID / 2) - 100,
-                           PADDING + CELL_SIZE * GRID + 50, 200, 60};
-
-  Rectangle reset_button = {PADDING + (int)(CELL_SIZE * GRID / 2) - 100,
-                            PADDING + CELL_SIZE * GRID + 150, 200, 60};
-
+  // -------------------------------
+  // Dynamic scaling (SAFE VERSION)
+  // -------------------------------
+  int screenW = GetMonitorWidth(0);
+  int screenH = GetMonitorHeight(0);
+  
+  int MAX_UI_SPACE = 300;
+  
+  // Prevent division issues
+  if (GRID <= 0) GRID = 1;
+  
+  int availableW = screenW - 2 * PADDING;
+  int availableH = screenH - 2 * PADDING - MAX_UI_SPACE;
+  
+  // Safety clamp
+  availableW = std::max(availableW, GRID);
+  availableH = std::max(availableH, GRID);
+  
+  int cellW = availableW / GRID;
+  int cellH = availableH / GRID;
+  
+  CELL_SIZE = std::min(cellW, cellH);
+  
+  // HARD safety limits (important)
+  if (CELL_SIZE < 60) CELL_SIZE = 60;
+  if (CELL_SIZE > 80) CELL_SIZE = 80;
+  
   Board board;
-  board.init(GRID);     
+  board.init(GRID); 
   board.loadFromFile(files[choice]);
-
+  
   for (int row = 0; row < GRID; row++) {
     for (int col = 0; col < GRID; col++) {
       cout << board.board[row][col].color << " " << row << " " << col << "\t";
     }
     cout << "\n";
   }
+  
+  int windowW = 2 * PADDING + GRID * CELL_SIZE;
+  int windowH = 2 * PADDING + GRID * CELL_SIZE + 300;
+  
+  // Hard minimums (GLFW requires positive size)
+  if (windowW < 600) windowW = 600;
+  if (windowH < 500) windowH = 500;
+  
+  // Hard maximums WITHOUT monitor query
+  if (windowW > 1800) windowW = 1800;
+  if (windowH > 1000)  windowH = 1000;
+  
+  
+  
+  SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_MAXIMIZED);
 
-  InitWindow(2 * PADDING + GRID * CELL_SIZE,
-             PADDING * 2 + CELL_SIZE * GRID + 300, "Flow Game - Raylib");
+  InitWindow(windowW, windowH, "Flow Game - Raylib");
   SetTargetFPS(60);
+  
+  int Monitor = GetCurrentMonitor();
+  int screen_Width = GetMonitorWidth(Monitor);
+  int screen_Height = GetMonitorHeight(Monitor);
+
+  int posX = (screen_Width-windowW)/2;
+  int posY = (screen_Height-windowH)/2;
+  
+  if(posX<0) posX = 0;
+  if(posY<0) posY = 0;
+  SetWindowPosition(posX, posY);
+  // --------------------------------
+  // Center the grid inside the window
+  // --------------------------------
+  int gridPixelSize = GRID * CELL_SIZE;
+
+  GRID_OFFSET_X = (GetScreenWidth()  - gridPixelSize) / 2;
+  GRID_OFFSET_Y = (GetScreenHeight() - gridPixelSize - 300) / 2;
+
+  // Keep some space at the top for aesthetics
+  if (GRID_OFFSET_Y < 40) GRID_OFFSET_Y = 40;
+
+  Rectangle undo_button = {
+    (GetScreenWidth() - 200) / 2,
+    GRID_OFFSET_Y + gridPixelSize + 40,
+    200, 60
+  };
+
+  Rectangle reset_button = {
+    (GetScreenWidth() - 200) / 2,
+    GRID_OFFSET_Y + gridPixelSize + 120,
+    200, 60
+  };
+
+
 
   Font roboto_font =
       LoadFontEx("./resources/fonts/Roboto-Black.ttf", 64, NULL, 250);
@@ -211,82 +493,97 @@ int main() {
     // -----------------------------
     if (state == HUMAN_TURN) {
 
-      int mx = GetMouseX();
-      int my = GetMouseY();
-      int row = mouseToGridY(my);
-      int col = mouseToGridX(mx);
+        int mx = GetMouseX();
+        int my = GetMouseY();
+        int row = mouseToGridY(my);
+        int col = mouseToGridX(mx);
 
-      // Start drag
-      if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        cout << row << " " << col << "\n";
-        if (row != -1 && col != -1) {
-          Cell &c = board.board[row][col];
+        // Start drag
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            if (row != -1 && col != -1) {
+                Cell &c = board.board[row][col];
+                if (c.isTerminal) {
+                    isDragging = true;
+                    // directionLocked = false;
+                    dragPath.clear();
+                    dragPath.push_back({row, col});
+                    start_row = row;
+                    start_col = col;
+                }
+            }
+        }
 
-          if (c.isTerminal) {
-            isDragging = true;
+        // Continue drag
+        if (isDragging && IsMouseButtonDown(MOUSE_LEFT_BUTTON) && !pathLocked) {
+
+            if (row == -1 || col == -1)
+                goto END_DRAG;
+
+            auto last = dragPath.back();
+            int dx = row - last.first;
+            int dy = col - last.second;
+
+            // Must be exactly 1 step
+            if (!((abs(dx) == 1 && dy == 0) || (abs(dy) == 1 && dx == 0)))
+                goto END_DRAG;
+
+            // No self overlap
+            for (auto &p : dragPath)
+                if (p.first == row && p.second == col)
+                    goto END_DRAG;
+
+            Cell &next = board.board[row][col];
+            Cell &startCell = board.board[start_row][start_col];
+
+            // No overlapping other pipes
+            if (next.hasPipe)
+                goto END_DRAG;
+
+            // Terminal rules
+            if (next.isTerminal) {
+                if (next.color != startCell.color)
+                    goto END_DRAG;
+
+                // Correct destination → lock
+                dragPath.push_back({row, col});
+                pathLocked = true;
+                goto END_DRAG;
+            }
+
+            // Normal move
+            dragPath.push_back({row, col});
+        }
+
+    END_DRAG:
+
+        // End drag
+        if (isDragging && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+            isDragging = false;
+
+            // Commit ONLY if destination reached
+            if (pathLocked) {
+                board.makeMove(dragPath);
+                state = AI_TURN;
+            }
+
             dragPath.clear();
-            dragPath.push_back({row, col});
-            start_col = col;
-            start_row = row;
-          }
+            pathLocked = false;
+            directionLocked = false;
         }
-      }
-
-      // Continue drag
-      if (isDragging && IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
-        if (row != -1 && col != -1) {
-
-          auto last = dragPath.back();
-          bool isNew = !(last.first == row && last.second == col);
-          bool adjacent = (abs(last.first - row) == 1 && last.second == col) ||
-                          (abs(last.second - col) == 1 && last.first == row);
-
-          if (isNew && adjacent) {
-            dragPath.push_back({row, col});
-          }
-        }
-      }
-
-      // End drag → human move complete
-      if (isDragging && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-        isDragging = false;
-
-        if (!dragPath.empty()) {
-          // Attempt move
-          bool ok = board.makeMove(dragPath);
-
-          if (ok) {
-            // Move accepted → AI turn begins
-            state = AI_TURN;
-          }
-        }
-
-        dragPath.clear();
-      }
     }
 
     // -----------------------------
     // AI TURN LOGIC
     // -----------------------------
     else if (state == AI_TURN) {
-      // Call the algorithm once and inspect the returned path
-      auto path = algorithm(board);
 
-      if (path.empty()) {
-        // AI couldn't find any move — print a message and return control to human.
-        // (You could keep the state in AI_TURN to retry, but that would stall the UI.)
-        cout << "AI: no path found (algorithm returned empty). Human may try another move.\n";
-        state = HUMAN_TURN;
-      } else {
-        // Attempt to apply the path. makeMove will print 'invalid path' if that happens.
-        bool ok = board.makeMove(path);
-        if (!ok) {
-          cout << "AI: algorithm returned a path but board.makeMove rejected it (invalid path).\n";
-          // leave a helpful hint — isValidPath() already prints more details.
-        }
-        // Either way, return control to human (AI's turn is finished).
-        state = HUMAN_TURN;
-      }
+      // Call your algorithm
+      auto ai_path = algorithm(board);
+      if (!ai_path.empty())
+          board.makeMove(ai_path);
+
+      state = HUMAN_TURN;
+
     }
 
     // -----------------------------

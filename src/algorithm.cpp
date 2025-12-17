@@ -14,22 +14,6 @@ int manhattan(int x1, int y1, int x2, int y2) {
   return abs(x1 - x2) + abs(y1 - y2);
 }
 
-int randomInt(int upper_bound) {
-  static std::random_device rd;
-  static std::mt19937 gen(rd());
-  std::uniform_int_distribution<> dist(0, upper_bound - 1);
-  return dist(gen);
-}
-
-bool colorAlreadyAdded(int color, vector<vector<int>> colors) {
-  for (int i = 0; i < (int)colors.size(); i++) {
-    if (color == colors[i][0]) {
-      return true;
-    }
-  }
-  return false;
-}
-
 bool terminalsReachable(const Board &board, int sr, int sc, int er, int ec) {
   int N = GRID;
   vector<vector<bool>> vis(N, vector<bool>(N, false));
@@ -65,7 +49,7 @@ vector<vector<int>> getTerminals(Board board) {
         colorGroups[colr].push_back({r,c});
       }
     }
-  }
+  } 
 
   vector<vector<int>> result;
   for (auto &kv : colorGroups) {
@@ -209,7 +193,7 @@ vector<pair<int,int>> AStarForPair(const Board &board, pair<int,int> start, pair
   int color = board.board[sr][sc].color;
 
   priority_queue<ANode, vector<ANode>, AComp> pq;
-  const int SCALE = 100;
+  const int SCALE = 100;  
 
   vector<vector<int>> bestG(N, vector<int>(N, numeric_limits<int>::max()));
   vector<vector<pair<int,int>>> parent(N, vector<pair<int,int>>(N, {-1,-1}));
