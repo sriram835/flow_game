@@ -22,7 +22,9 @@ std::unordered_map<int, Color> color_map = {
     {5, Color{255, 0, 255, 255}}, // Magenta / Pink
     {6, Color{0, 255, 255, 255}}, // Cyan / Aqua
     {7, Color{255, 255, 0, 255}},  // Yellow
-    {8, Color{112, 55, 67, 255}}
+    {8, Color{112, 55, 67, 255}},
+    {9, Color{228, 123, 126, 255}},
+    {10, Color{230, 143, 174, 255}}
 };
 
 std::vector<std::string> getLevelFiles(const std::string &folderPath) {
