@@ -9,14 +9,16 @@ bool pathLocked = false;
 bool isDragging = false;
 
 std::unordered_map<int, Color> color_map = {
-    {1, Color{255, 0, 0, 255}},   // Red
-    {2, Color{0, 255, 0, 255}},   // Green
-    {3, Color{0, 0, 255, 255}},   // Blue
-    {4, Color{255, 165, 0, 255}}, // Orange
-    {5, Color{255, 0, 255, 255}}, // Magenta / Pink
-    {6, Color{0, 255, 255, 255}}, // Cyan / Aqua
-    {7, Color{255, 255, 0, 255}},  // Yellow
-    {8, Color{112, 55, 67, 255}}
+    {1, Color{255, 0, 0, 255}},     // Red
+    {2, Color{0, 255, 0, 255}},     // Green
+    {3, Color{0, 0, 255, 255}},     // Blue
+    {4, Color{255, 165, 0, 255}},   // Orange
+    {5, Color{255, 0, 255, 255}},   // Magenta / Pink
+    {6, Color{0, 255, 255, 255}},   // Cyan / Aqua
+    {7, Color{255, 255, 0, 255}},   // Yellow
+    {8, Color{112, 55, 67, 255}},   // Brown
+    {9, Color{127, 234, 112, 255}}, // Light Green
+    {10, Color{63, 67, 123, 255}}   // Grey
 };
 
 std::vector<std::string> getLevelFiles(const std::string &folderPath) {
