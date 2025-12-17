@@ -7,14 +7,16 @@
 #include <algorithm>
 
 std::unordered_map<int, Color> color_map = {
-    {1, Color{255, 0, 0, 255}},   // Red
-    {2, Color{0, 255, 0, 255}},   // Green
-    {3, Color{0, 0, 255, 255}},   // Blue
-    {4, Color{255, 165, 0, 255}}, // Orange
-    {5, Color{255, 0, 255, 255}}, // Magenta / Pink
-    {6, Color{0, 255, 255, 255}}, // Cyan / Aqua
-    {7, Color{255, 255, 0, 255}},  // Yellow
-    {8, Color{112, 55, 67, 255}}
+    {1, Color{255, 0, 0, 255}},     // Red
+    {2, Color{0, 255, 0, 255}},     // Green
+    {3, Color{0, 0, 255, 255}},     // Blue
+    {4, Color{255, 165, 0, 255}},   // Orange
+    {5, Color{255, 0, 255, 255}},   // Magenta / Pink
+    {6, Color{0, 255, 255, 255}},   // Cyan / Aqua
+    {7, Color{255, 255, 0, 255}},   // Yellow
+    {8, Color{112, 55, 67, 255}},   // Brown
+    {9, Color{127, 234, 112, 255}}, // Light Green
+    {10, Color{63, 67, 123, 255}}   // Grey
 };
 
 std::vector<std::string> getLevelFiles(const std::string &folderPath) {
@@ -47,7 +49,7 @@ std::vector<std::pair<int, int>> dragPath;
 int start_row = -1, start_col = -1;
 
 int mouseToGridX(int mx) {
-  mx -= PADDING;
+  mx -= GRID_OFFSET_X;
   int gx = mx / CELL_SIZE;
   if (gx < 0 || gx >= GRID)
     return -1;
@@ -55,7 +57,7 @@ int mouseToGridX(int mx) {
 }
 
 int mouseToGridY(int my) {
-  my -= PADDING;
+  my -= GRID_OFFSET_Y;
   int gy = my / CELL_SIZE;
   if (gy < 0 || gy >= GRID)
     return -1;
@@ -74,10 +76,10 @@ void drawPath(const vector<pair<int, int>> &path, const Color col) {
   for (int i = 0; i < path.size() - 1; i++) {
     int r1 = path[i].first, c1 = path[i].second;
     int r2 = path[i + 1].first, c2 = path[i + 1].second;
-    Vector2 p1 = {c1 * CELL_SIZE + CELL_SIZE * 0.5f + PADDING,
-                  r1 * CELL_SIZE + CELL_SIZE * 0.5f + PADDING};
-    Vector2 p2 = {c2 * CELL_SIZE + CELL_SIZE * 0.5f + PADDING,
-                  r2 * CELL_SIZE + CELL_SIZE * 0.5f + PADDING};
+    Vector2 p1 = {c1 * CELL_SIZE + CELL_SIZE * 0.5f + GRID_OFFSET_X,
+                  r1 * CELL_SIZE + CELL_SIZE * 0.5f + GRID_OFFSET_Y};
+    Vector2 p2 = {c2 * CELL_SIZE + CELL_SIZE * 0.5f + GRID_OFFSET_X,
+                  r2 * CELL_SIZE + CELL_SIZE * 0.5f + GRID_OFFSET_Y};
     DrawCircleV(p1, thickness * 0.5f, col);
     DrawCircleV(p2, thickness * 0.5f, col);
     DrawLineEx(p1, p2, thickness, col);
@@ -94,14 +96,14 @@ void drawBoard(const Board &b) {
 
       Color col = Color{0, 0, 0, 255};
 
-      DrawRectangle(PADDING + y * CELL_SIZE, PADDING + x * CELL_SIZE,
+      DrawRectangle(GRID_OFFSET_X+ y * CELL_SIZE, GRID_OFFSET_Y + x * CELL_SIZE,
 
                     CELL_SIZE - 2, CELL_SIZE - 2, col);
 
       if (c.isTerminal) {
         col = color_map[b.board[x][y].color];
-        Vector2 point = {y * CELL_SIZE + CELL_SIZE * 0.5f + PADDING,
-                         x * CELL_SIZE + CELL_SIZE * 0.5f + PADDING};
+        Vector2 point = {y * CELL_SIZE + CELL_SIZE * 0.5f + GRID_OFFSET_X,
+                         x * CELL_SIZE + CELL_SIZE * 0.5f + GRID_OFFSET_Y};
         DrawCircleV(point, thickness * 0.8f, col);
       }
     }
@@ -411,7 +413,6 @@ int main() {
 
   SetConfigFlags(FLAG_WINDOW_TOPMOST);
   InitWindow(windowW, windowH, "Flow Game - Raylib");
-  SetWindowPosition(20, 20);
   SetTargetFPS(60);
 
   // --------------------------------
@@ -421,9 +422,11 @@ int main() {
   int Monitor = GetCurrentMonitor();
   int screen_Width = GetMonitorWidth(Monitor);
   int screen_Height = GetMonitorHeight(Monitor);
+  int window_Width = GetScreenWidth();
+  int window_Height = GetScreenHeight();
 
-  int posX = (screen_Width-windowW)/2;
-  int posY = (screen_Height-windowH)/2;
+  int posX = (screen_Width-window_Width)/2;
+  int posY = (screen_Height-window_Height)/2;
   
   if(posX<0) posX = 0;
   if(posY<0) posY = 0;
