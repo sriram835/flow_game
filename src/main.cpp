@@ -252,9 +252,7 @@ bool isAlreadySolved(const Board &board, pair<int,int> a, pair<int,int> b)
 
 vector<pair<int,int>> algorithm(Board &board)
 {
-    // -------------------------------------------------------------------
-    // 1. Collect all terminal pairs by color
-    // -------------------------------------------------------------------
+
     unordered_map<int, vector<pair<int,int>>> terminals;
 
     for (int r = 0; r < GRID; r++) {
@@ -281,15 +279,8 @@ vector<pair<int,int>> algorithm(Board &board)
 
         pairs.push_back(tp);
     }
-
-    // -------------------------------------------------------------------
-    // 2. Sort terminal pairs by Euclidean distance (smallest first)
-    // -------------------------------------------------------------------
     shell_sort(pairs);
 
-    // -------------------------------------------------------------------
-    // 3. Remove already-solved terminal pairs (solved by human or AI)
-    // -------------------------------------------------------------------
     pairs.erase(
         remove_if(pairs.begin(), pairs.end(),
                   [&](const TerminalPair &tp)
@@ -298,24 +289,18 @@ vector<pair<int,int>> algorithm(Board &board)
                   }),
         pairs.end());
 
-    // -------------------------------------------------------------------
-    // 4. Try solving pairs in sorted order until a solvable one is found
-    // -------------------------------------------------------------------
     for (const auto &tp : pairs)
     {
         vector<pair<int,int>> path = bfsPath(board, tp.a, tp.b);
 
         if (!path.empty()) {
-            // BFS succeeded → this pair is solvable
+       
             return path;
         }
 
-        // BFS failed → try next pair
+      
     }
 
-    // -------------------------------------------------------------------
-    // 5. Nothing solvable
-    // -------------------------------------------------------------------
     return {};  
 }
 
@@ -362,21 +347,18 @@ int main() {
   if (GRID == -1) {
     exit(EXIT_FAILURE);
   }
-  // -------------------------------
-  // Dynamic scaling (SAFE VERSION)
-  // -------------------------------
+
   int screenW = GetMonitorWidth(0);
   int screenH = GetMonitorHeight(0);
 
   int MAX_UI_SPACE = 300;
 
-  // Prevent division issues
   if (GRID <= 0) GRID = 1;
 
   int availableW = screenW - 2 * PADDING;
   int availableH = screenH - 2 * PADDING - MAX_UI_SPACE;
 
-  // Safety clamp
+ 
   availableW = std::max(availableW, GRID);
   availableH = std::max(availableH, GRID);
 
@@ -385,7 +367,7 @@ int main() {
 
   CELL_SIZE = std::min(cellW, cellH);
 
-  // HARD safety limits (important)
+
   if (CELL_SIZE < 60) CELL_SIZE = 60;
   if (CELL_SIZE > 80) CELL_SIZE = 80;
 
