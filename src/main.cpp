@@ -5,6 +5,7 @@
 #include <vector>
 #include <queue>
 #include <algorithm>
+#include <functional>
 
 std::unordered_map<int, Color> color_map = {
     {1, Color{255, 0, 0, 255}},     // Red
@@ -92,7 +93,7 @@ void drawBoard(const Board &b) {
   for (int x = 0; x < GRID; x++) {
     for (int y = 0; y < GRID; y++) {
 
-      Cell c = b.board[x][y];
+      const Cell &c = b.board[x][y];
 
       Color col = Color{0, 0, 0, 255};
 
@@ -118,7 +119,7 @@ void drawBoard(const Board &b) {
   }
 }
 
-void drawDragPath(Board board) {
+void drawDragPath(const Board &board) {
   if (dragPath.empty()) {
     return;
   }
@@ -200,9 +201,6 @@ vector<pair<int,int>> bfsPath(const Board &board, pair<int,int> start, pair<int,
 
             const Cell &cell = board.board[nr][nc];
 
-            // Forbidden:
-            // - other pipes
-            // - terminals of other colors
             if (cell.hasPipe)
                 continue;
             if (cell.isTerminal && !(nr == goal.first && nc == goal.second))
@@ -250,11 +248,158 @@ bool isAlreadySolved(const Board &board, pair<int,int> a, pair<int,int> b)
     return false;
 }
 
+vector<vector<pair<int,int>>> findEmptyRegions(const Board &board) {
+    vector<vector<bool>> visited(GRID, vector<bool>(GRID, false));
+    vector<vector<pair<int,int>>> regions;
+    
+    function<void(int, int, vector<pair<int,int>>&)> flood = 
+        [&](int r, int c, vector<pair<int,int>> &region) {
+        if (r < 0 || r >= GRID || c < 0 || c >= GRID) return;
+        if (visited[r][c]) return;
+        
+        const Cell &cell = board.board[r][c];
+        if (cell.hasPipe || cell.isTerminal) return;
+        
+        visited[r][c] = true;
+        region.push_back({r, c});
+        
+        flood(r+1, c, region);
+        flood(r-1, c, region);
+        flood(r, c+1, region);
+        flood(r, c-1, region);
+    };
+    
+    for (int r = 0; r < GRID; r++) {
+        for (int c = 0; c < GRID; c++) {
+            const Cell &cell = board.board[r][c];
+            if (!visited[r][c] && !cell.hasPipe && !cell.isTerminal) {
+                vector<pair<int,int>> region;
+                flood(r, c, region);
+                if (!region.empty()) {
+                    regions.push_back(region);
+                }
+            }
+        }
+    }
+    
+    return regions;
+}
+
+vector<pair<int,int>> bfsWithRegionFill(const Board &board, 
+                                        pair<int,int> start, 
+                                        pair<int,int> goal) {
+    cout << "\n=== bfsWithRegionFill called ===\n";
+    
+    vector<pair<int,int>> shortestPath = bfsPath(board, start, goal);
+    if (shortestPath.empty()) return {};
+    
+    int shortestLen = shortestPath.size();
+    cout << "Shortest path length: " << shortestLen << "\n";
+    
+    int maxExtra = 25;
+    
+    auto emptyRegions = findEmptyRegions(board);
+    vector<vector<int>> regionValue(GRID, vector<int>(GRID, 0));
+    
+    for (const auto &region : emptyRegions) {
+        if (region.size() >= 2) {
+            for (const auto &[r, c] : region) {
+                regionValue[r][c] = region.size();
+            }
+        }
+    }
+    
+    vector<vector<int>> bestScore(GRID, vector<int>(GRID, INT_MAX));
+    vector<vector<int>> distance(GRID, vector<int>(GRID, INT_MAX));
+    vector<vector<pair<int,int>>> parent(GRID, vector<pair<int,int>>(GRID, {-1,-1}));
+    vector<vector<bool>> finalized(GRID, vector<bool>(GRID, false)); // NEW: Track finalized cells
+    
+    priority_queue<pair<int, pair<int,int>>, 
+                   vector<pair<int, pair<int,int>>>,
+                   greater<pair<int, pair<int,int>>>> pq;
+    
+    pq.push({0, start});
+    bestScore[start.first][start.second] = 0;
+    distance[start.first][start.second] = 0;
+    
+    int dr[4] = {1,-1,0,0};
+    int dc[4] = {0,0,1,-1};
+    
+    while (!pq.empty()) {
+        auto [currentScore, pos] = pq.top();
+        pq.pop();
+        
+        auto [r, c] = pos;
+        
+        // Skip if already finalized (this is the key fix!)
+        if (finalized[r][c]) continue;
+        
+        // Mark as finalized - we won't update this cell again
+        finalized[r][c] = true;
+        
+        if (r == goal.first && c == goal.second) {
+            cout << "Reached goal!\n";
+            break;
+        }
+        
+        if (distance[r][c] >= shortestLen + maxExtra) continue;
+        
+        for (int k = 0; k < 4; k++) {
+            int nr = r + dr[k];
+            int nc = c + dc[k];
+            
+            if (nr < 0 || nr >= GRID || nc < 0 || nc >= GRID) continue;
+            
+            const Cell &cell = board.board[nr][nc];
+            if (cell.hasPipe) continue;
+            if (cell.isTerminal && !(nr == goal.first && nc == goal.second)) continue;
+            
+            // Don't update finalized cells
+            if (finalized[nr][nc]) continue;
+            
+            int newDist = distance[r][c] + 1;
+            int newScore = currentScore + 1 - (regionValue[nr][nc] * 2);
+            
+            if (newScore < bestScore[nr][nc]) {
+                bestScore[nr][nc] = newScore;
+                distance[nr][nc] = newDist;
+                parent[nr][nc] = {r, c};
+                pq.push({newScore, {nr, nc}});
+            }
+        }
+    }
+    
+    if (!finalized[goal.first][goal.second]) {
+        cout << "Could not reach goal!\n";
+        return shortestPath;
+    }
+    
+    // Reconstruct path
+    vector<pair<int,int>> path;
+    pair<int,int> cur = goal;
+    
+    while (!(cur == start)) {
+        path.push_back(cur);
+        cur = parent[cur.first][cur.second];
+    }
+    path.push_back(start);
+    reverse(path.begin(), path.end());
+    
+    cout << "SUCCESS! Shortest: " << shortestLen << " cells, Region-aware: " << path.size() << " cells\n";
+    
+    int regionCells = 0;
+    for (const auto &[r, c] : path) {
+        if (regionValue[r][c] > 0) regionCells++;
+    }
+    cout << "Path goes through " << regionCells << " region cells\n";
+    
+    return (path.size() <= shortestLen + maxExtra) ? path : shortestPath;
+}
+
+
 vector<pair<int,int>> algorithm(Board &board)
 {
-    // -------------------------------------------------------------------
-    // 1. Collect all terminal pairs by color
-    // -------------------------------------------------------------------
+    // collecting terminal pairs by colour
     unordered_map<int, vector<pair<int,int>>> terminals;
 
     for (int r = 0; r < GRID; r++) {
@@ -265,7 +410,7 @@ vector<pair<int,int>> algorithm(Board &board)
         }
     }
 
-    // Build a list of pairs
+    // building a list of pairs
     vector<TerminalPair> pairs;
 
     for (auto &kv : terminals) {
@@ -282,14 +427,10 @@ vector<pair<int,int>> algorithm(Board &board)
         pairs.push_back(tp);
     }
 
-    // -------------------------------------------------------------------
-    // 2. Sort terminal pairs by Euclidean distance (smallest first)
-    // -------------------------------------------------------------------
+    // sorting terminal pairs by euclidean distance
     shell_sort(pairs);
 
-    // -------------------------------------------------------------------
-    // 3. Remove already-solved terminal pairs (solved by human or AI)
-    // -------------------------------------------------------------------
+    /// removing solved pairs
     pairs.erase(
         remove_if(pairs.begin(), pairs.end(),
                   [&](const TerminalPair &tp)
@@ -298,25 +439,102 @@ vector<pair<int,int>> algorithm(Board &board)
                   }),
         pairs.end());
 
-    // -------------------------------------------------------------------
-    // 4. Try solving pairs in sorted order until a solvable one is found
-    // -------------------------------------------------------------------
+    // solving pairs in order
     for (const auto &tp : pairs)
     {
         vector<pair<int,int>> path = bfsPath(board, tp.a, tp.b);
 
         if (!path.empty()) {
-            // BFS succeeded → this pair is solvable
             return path;
         }
-
-        // BFS failed → try next pair
+        // bfs failed-> next pair
     }
 
-    // -------------------------------------------------------------------
-    // 5. Nothing solvable
-    // -------------------------------------------------------------------
+    // unsolvable path
     return {};  
+}
+
+vector<pair<int,int>> enhancedAlgorithm(Board &board) {
+    unordered_map<int, vector<pair<int,int>>> terminals;
+    
+    for (int r = 0; r < GRID; r++) {
+        for (int c = 0; c < GRID; c++) {
+            const Cell &cell = board.board[r][c];
+            if (cell.isTerminal)
+                terminals[cell.color].push_back({r,c});
+        }
+    }
+    
+    vector<TerminalPair> pairs;
+    
+    for (auto &kv : terminals) {
+        auto &vec = kv.second;
+        if (vec.size() != 2) continue;
+        
+        TerminalPair tp;
+        tp.color = kv.first;
+        tp.a = vec[0];
+        tp.b = vec[1];
+        tp.dist = distanceEuclid(tp.a, tp.b);
+        
+        pairs.push_back(tp);
+    }
+    
+    shell_sort(pairs);
+    
+    pairs.erase(
+        remove_if(pairs.begin(), pairs.end(),
+                  [&](const TerminalPair &tp) {
+                      return isAlreadySolved(board, tp.a, tp.b);
+                  }),
+        pairs.end());
+    
+    auto emptyRegions = findEmptyRegions(board);
+    
+    cout << "\n=== AI TURN ===\n";
+    cout << "Found " << emptyRegions.size() << " regions\n";
+    for (size_t i = 0; i < emptyRegions.size(); i++) {
+        cout << "  Region " << i << ": " << emptyRegions[i].size() << " cells\n";
+    }
+
+    vector<pair<double, int>> scoredPairs;
+    
+    for (size_t i = 0; i < pairs.size(); i++) {
+        const auto &tp = pairs[i];
+        double score = tp.dist;
+        
+        for (const auto &region : emptyRegions) {
+            if (region.size() < 2) continue;
+            
+            bool nearStart = false, nearEnd = false;
+            for (const auto &[r, c] : region) {
+                if (abs(r - tp.a.first) + abs(c - tp.a.second) <= 4)
+                    nearStart = true;
+                if (abs(r - tp.b.first) + abs(c - tp.b.second) <= 4)
+                    nearEnd = true;
+            }
+            
+            if (nearStart && nearEnd) {
+                score -= region.size() * 3.0;
+            }
+        }
+        
+        scoredPairs.push_back({score, i});
+    }
+    
+    sort(scoredPairs.begin(), scoredPairs.end());
+    
+    for (const auto &[score, idx] : scoredPairs) {
+        const auto &tp = pairs[idx];
+        
+        vector<pair<int,int>> path = bfsWithRegionFill(board, tp.a, tp.b);
+        
+        if (!path.empty()) {
+            return path;
+        }
+    }
+    
+    return {};
 }
 
 int countLines(const std::string &filePath) {
@@ -392,6 +610,12 @@ int main() {
   Board board;
   board.init(GRID); 
   board.loadFromFile(files[choice]);
+
+  auto testRegions = findEmptyRegions(board);
+    cout << "Found " << testRegions.size() << " empty regions\n";
+    for (size_t i = 0; i < testRegions.size(); i++) {
+        cout << "Region " << i << ": " << testRegions[i].size() << " cells\n";
+    }
 
   for (int row = 0; row < GRID; row++) {
     for (int col = 0; col < GRID; col++) {
@@ -568,7 +792,7 @@ int main() {
     else if (state == AI_TURN) {
 
       // Call your algorithm
-      auto ai_path = algorithm(board);
+      auto ai_path = enhancedAlgorithm(board);
       if (!ai_path.empty())
           board.makeMove(ai_path);
 
