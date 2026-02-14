@@ -2,6 +2,7 @@
 #include "globals.h"
 #include "raylib.h"
 #include <vector>
+#include "half_split.h"
 
 int dir_dx = 0, dir_dy = 0;
 bool directionLocked = false;
@@ -322,7 +323,7 @@ int main() {
     else if (state == AI_TURN) {
 
       // Call your algorithm
-      board.makeMove(algorithm());
+      board.makeMove(half_split_algorithm(board));
       state = HUMAN_TURN;
     }
 
