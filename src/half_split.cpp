@@ -3,6 +3,7 @@
 #include <cmath>
 #include <iostream>
 #include <algorithm>
+#include <queue>
 #include <tuple>
 #include <unordered_map>
 
@@ -35,19 +36,6 @@ void fillTerminalMap(const Board& board)
     }
 }
 
-vector<pair<int,int>> half_split_algorithm(const Board& board)
-{
-    fillTerminalMap(board);
-    for (auto cell : terminalMap)
-    {
-        pair<int, int> start = cell.second.first;
-        pair<int, int> end = cell.second.second;
-
-        cout << "Color: " << cell.first << " Start: (" << start.first << ", " << start.second << ") End: (" << end.first << ", " << end.second << ")" << endl;
-    }
-
-    return {};
-}
 
 
 
@@ -90,27 +78,78 @@ bool isInside(pair<int, int> point, pair<pair<int, int>, pair<int, int>> bounds)
             c >= bounds.first.second && c <= bounds.second.second);
 }
 
+double getDistance(pair<int, int> p1, pair<int, int> p2) {
+    return sqrt(pow(p1.first - p2.first, 2) + pow(p1.second - p2.second, 2));
+}
+
+path findPathDijkstra(pair<int, int> start, pair<int, int> target, pair<pair<int, int>, pair<int, int>> bounds) {
+    priority_queue<pair<int, pair<int, int>>, vector<pair<int, pair<int, int>>>, greater<>> pq;
+    unordered_map<int, unordered_map<int, pair<int, int>>> parent;
+    unordered_map<int, unordered_map<int, int>> dist;
+
+    pq.push({0, start});
+    dist[start.first][start.second] = 0;
+
+    int dr[] = {-1, 1, 0, 0};
+    int dc[] = {0, 0, -1, 1};
+
+    while (!pq.empty()) {
+        auto [d, curr] = pq.top();
+        pq.pop();
+
+        if (curr == target) {
+            path p;
+            while (curr != start) {
+                p.push_back(curr);
+                curr = parent[curr.first][curr.second];
+            }
+            p.push_back(start);
+            reverse(p.begin(), p.end());
+            return p;
+        }
+
+        for (int i = 0; i < 4; i++) {
+            pair<int, int> next = {curr.first + dr[i], curr.second + dc[i]};
+            if (isInside(next, bounds) && !visited[next.first][next.second]) {
+                int newDist = d + 1;
+                if (dist[next.first].find(next.second) == dist[next.first].end() || newDist < dist[next.first][next.second]) {
+                    dist[next.first][next.second] = newDist;
+                    parent[next.first][next.second] = curr;
+                    pq.push({newDist, next});
+                }
+            }
+        }
+    }
+    return {}; // Return empty if no path
+}
+
 void half_split_recursive_solver(const Board& board, pair<int, int> top_left, pair<int,int> bottom_right)
 {
     auto [firstHalf, secondHalf]= findHalf(board, top_left, bottom_right);
 
     // base case
+    if (top_left.first >= bottom_right.first && top_left.second >= bottom_right.second) return;
 
     //straddlgin step
-    for (auto const& [color, terminals] : terminalMap)
-    {
-        pair<int, int> p1 = terminals.first;
-        pair<int, int> p2 = terminals.second;
-
-        bool p1_in_first = isInside(p1, firstHalf);
-        bool p2_in_first = isInside(p2, firstHalf);
+    vector<pair<double, int>> straddlingColor;
+    for (auto const& [color, terminals] : terminalMap) {
+        if ((isInside(terminals.first, firstHalf) && isInside(terminals.second, secondHalf)) ||
+            (isInside(terminals.second, firstHalf) && isInside(terminals.first, secondHalf))) {
+            
+            double dist = getDistance(terminals.first, terminals.second);
+            straddlingColor.push_back({dist, color});
+        }
+    }
+    sort(straddlingColor.begin(), straddlingColor.end());
+    for (auto& item : straddlingColor) {
+        int color = item.second;
+        path p = findPathDijkstra(terminalMap[color].first, terminalMap[color].second, {top_left, bottom_right});
         
-        bool p1_in_second = isInside(p2, secondHalf); 
-        bool p2_in_second = isInside(p1, secondHalf);
-
-        if ((p1_in_first && p2_in_second) || (p2_in_first && p1_in_second))
-        {
-            cout << "Color " << color << " straddles the current split!" << endl;
+        if (!p.empty()) {
+            validPaths.push_back(p);
+            for (auto pos : p) {
+                visited[pos.first][pos.second] = true;
+            }
         }
     }
 
@@ -121,3 +160,22 @@ void half_split_recursive_solver(const Board& board, pair<int, int> top_left, pa
 
 }   
 
+vector<path> solvedPaths; 
+int currentPathIndex = -1;
+
+vector<pair<int,int>> half_split_algorithm(const Board& board)
+{
+    currentPathIndex++;
+    fillTerminalMap(board);
+    for (auto cell : terminalMap)
+    {
+        pair<int, int> start = cell.second.first;
+        pair<int, int> end = cell.second.second;
+
+        cout << "Color: " << cell.first << " Start: (" << start.first << ", " << start.second << ") End: (" << end.first << ", " << end.second << ")" << endl;
+    }
+
+    half_split_recursive_solver(board, {0, 0}, {GRID-1, GRID-1});
+    solvedPaths = validPaths;
+    return solvedPaths[currentPathIndex];
+}
