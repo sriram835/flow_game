@@ -126,22 +126,6 @@ int randomInt(int upper_bound) {
   return dist(gen);
 }
 
-/*
-vector<vector<int>> getTerminals(Board board) {
-  vector<vector<int>> colors;
-
-  for (int row = 0; row < GRID; row++) {
-    for (int col = 0; col < GRID; col++) {
-      int color = board.board[row][col].color;
-      if (color != 0 && !colorAlreadyAdded(color, colors)) {
-        colors.push_back(vector{color, row, col});
-      }
-    }
-  }
-
-  return colors;
-}
-*/
 
 bool terminalsReachable(const Board &board, int color, int sr, int sc, int er,
                         int ec, vector<vector<bool>> visited) {

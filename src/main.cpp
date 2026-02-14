@@ -1,18 +1,19 @@
-#include "game_algorithms.h"
 #include "board.h"
+#include "game_algorithms.h"
 #include "globals.h"
 #include "raylib.h"
+#include "solver.h"
 #include <vector>
 
 std::unordered_map<int, Color> color_map = {
-    {1, Color{255, 0, 0, 255}},   // Red
-    {2, Color{0, 255, 0, 255}},   // Green
-    {3, Color{0, 0, 255, 255}},   // Blue
-    {4, Color{255, 165, 0, 255}}, // Orange
-    {5, Color{255, 0, 255, 255}}, // Magenta / Pink
-    {6, Color{0, 255, 255, 255}}, // Cyan / Aqua
-    {7, Color{255, 255, 0, 255}}, // Yellow
-    {8, Color{112, 55, 67, 255}}};
+    {2, Color{255, 0, 0, 255}},    // Red
+    {3, Color{0, 255, 0, 255}},    // Green
+    {5, Color{0, 0, 255, 255}},    // Blue
+    {7, Color{255, 165, 0, 255}},  // Orange
+    {13, Color{255, 0, 255, 255}}, // Magenta / Pink
+    {17, Color{0, 255, 255, 255}}, // Cyan / Aqua
+    {23, Color{255, 255, 0, 255}}, // Yellow
+    {27, Color{112, 55, 67, 255}}};
 
 std::vector<std::string> getLevelFiles(const std::string &folderPath) {
   std::vector<std::string> files;
@@ -177,6 +178,8 @@ int main() {
 
   board.loadFromFile(files[choice]);
 
+  cout << "Solver done\n";
+
   for (int row = 0; row < GRID; row++) {
     for (int col = 0; col < GRID; col++) {
       cout << board.board[row][col].color << " " << row << " " << col << "\t";
@@ -209,6 +212,11 @@ int main() {
     if (reset_clicked) {
       cout << "Reset clicked\n";
       board.resetBoard();
+    }
+
+    if (isBoardFull(board)) {
+      cout << "Board is full\n";
+      cout << isValidBoard(board) << "\n";
     }
 
     // -----------------------------

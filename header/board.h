@@ -5,6 +5,10 @@
 
 #include "globals.h"
 
+
+
+
+
 using namespace std;
 
 class Cell {
@@ -20,13 +24,22 @@ public:
   Board() {
     board.resize(GRID, vector<Cell>(GRID));
   }
+
+
   vector<vector<Cell>> board;
+
   vector<vector<pair<int, int>>> saved_paths;
+  
   bool makeMove(vector<pair<int, int>>);
+
   bool isValidPath(vector<pair<int, int>>);
+  
   bool loadFromFile(const std::string &filename);
+  
   bool removePath(vector<pair<int, int>>);
+  
   void undoMove();
+  
   void resetBoard();
 };
 
