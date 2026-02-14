@@ -1,0 +1,5 @@
+-xc++
+-IC:\\msys64\\ucrt64\\include\\
+-Wall
+-Wextra
+-Iheader

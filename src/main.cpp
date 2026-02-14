@@ -1,6 +1,7 @@
 #include "board.h"
 #include "globals.h"
 #include "raylib.h"
+#include "greedy_wrap_algorithm.h"
 #include <vector>
 
 int dir_dx = 0, dir_dy = 0;
@@ -125,15 +126,6 @@ void drawDragPath(Board board) {
   drawPath(dragPath, color_map[color_int]);
 }
 
-std::vector<std::pair<int, int>> algorithm() {
-  vector<pair<int, int>> path;
-  path.push_back(pair(3, 0));
-  path.push_back(pair(2, 0));
-  path.push_back(pair(1, 0));
-  path.push_back(pair(1, 1));
-
-  return path;
-}
 
 int countLines(const std::string &filePath) {
   std::ifstream file(filePath);
@@ -177,11 +169,11 @@ int main() {
     exit(EXIT_FAILURE);
   }
 
-  Rectangle undo_button = {PADDING + (int)(CELL_SIZE * GRID / 2) - 100,
-                           PADDING + CELL_SIZE * GRID + 50, 200, 60};
+  Rectangle undo_button = {static_cast<float>(PADDING + (int)(CELL_SIZE * GRID / 2) - 100),
+                           static_cast<float>(PADDING + CELL_SIZE * GRID + 50), 200, 60};
 
-  Rectangle reset_button = {PADDING + (int)(CELL_SIZE * GRID / 2) - 100,
-                            PADDING + CELL_SIZE * GRID + 150, 200, 60};
+  Rectangle reset_button = {static_cast<float>(PADDING + (int)(CELL_SIZE * GRID / 2) - 100),
+                            static_cast<float>(PADDING + CELL_SIZE * GRID + 150), 200, 60};
 
   Board board;
 
@@ -310,8 +302,8 @@ int main() {
     // -----------------------------
     else if (state == AI_TURN) {
 
-      // Call your algorithm
-      board.makeMove(algorithm());
+      // Call greedy wrap algorithm
+      board.makeMove(greedyWrapAlgorithm(board));
       state = HUMAN_TURN;
     }
 
