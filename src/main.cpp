@@ -177,11 +177,14 @@ int main() {
     exit(EXIT_FAILURE);
   }
 
-  Rectangle undo_button = {PADDING + (int)(CELL_SIZE * GRID / 2) - 100,
-                           PADDING + CELL_SIZE * GRID + 50, 200, 60};
+  Rectangle undo_button = {static_cast<float>(PADDING + (int)(CELL_SIZE * GRID / 2) - 100),
+                           static_cast<float>(PADDING + CELL_SIZE * GRID + 50), 200, 60};
 
-  Rectangle reset_button = {PADDING + (int)(CELL_SIZE * GRID / 2) - 100,
-                            PADDING + CELL_SIZE * GRID + 150, 200, 60};
+  Rectangle reset_button = {static_cast<float>(PADDING + (int)(CELL_SIZE * GRID / 2) - 100),
+                            static_cast<float>(PADDING + CELL_SIZE * GRID + 150), 200, 60};
+
+	Rectangle next_button = {static_cast<float>(PADDING + (int)(CELL_SIZE * GRID / 2) - 100),
+                            static_cast<float>(PADDING + CELL_SIZE * GRID + 250), 200, 60};
 
   Board board;
 
@@ -211,6 +214,9 @@ int main() {
     bool reset_hover = CheckCollisionPointRec(mouse_pos, reset_button);
     bool reset_clicked = reset_hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
 
+		bool next_hover = CheckCollisionPointRec(mouse_pos, next_button);
+		bool next_clicked = next_hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+
     if (undo_clicked == true && !board.saved_paths.empty()) {
       cout << "Undo clicked\n";
       board.undoMove();
@@ -219,6 +225,11 @@ int main() {
     if (reset_clicked) {
       cout << "Reset clicked\n";
       board.resetBoard();
+    }
+
+    if (next_clicked == true)
+    {
+      board.makeMove({std::pair<int, int>(2,3), std::pair<int, int>(2,4), std::pair<int, int>(3,4), std::pair<int, int>(4,4)});
     }
 
     // -----------------------------
@@ -344,6 +355,20 @@ int main() {
 
     DrawTextEx(roboto_font, "Reset",
                (Vector2){reset_button.x + 60, reset_button.y + 15}, 32, 2,
+               BLACK);
+
+
+    if (next_hover) {
+      DrawRectangleRec(next_button, LIGHTGRAY);
+
+    } else {
+      DrawRectangleRec(next_button, GRAY);
+    }
+    DrawRectangleLines(next_button.x, next_button.y, next_button.width,
+                        next_button.height, BLACK);
+
+    DrawTextEx(roboto_font, "Next",
+               (Vector2){next_button.x + 60, next_button.y + 15}, 32, 2,
                BLACK);
 
     drawBoard(board);
