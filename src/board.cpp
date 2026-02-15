@@ -192,6 +192,9 @@ bool Board::removePath(vector<pair<int, int>> path) {
 }
 
 void Board::undoMove() {
+  if (saved_paths.empty()) {
+    return;
+  }
   auto path = saved_paths.back();
   bool res = removePath(path);
   if (res) {

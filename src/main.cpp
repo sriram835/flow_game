@@ -130,6 +130,27 @@ void drawDragPath(const Board &board) {
   drawPath(dragPath, color_map[color_int]);
 }
 
+int countLines(const std::string &filePath) {
+  std::ifstream file(filePath);
+
+  if (!file.is_open()) {
+    return -1; // Could not open file
+  }
+
+  int count = 0;
+  std::string line;
+
+  while (std::getline(file, line)) {
+    count++;
+  }
+
+  return count;
+}
+
+/* ===============================================================
+                           OLD LOGIC
+   =============================================================== */
+
 struct TerminalPair {
     int color;
     pair<int,int> a;
@@ -248,21 +269,32 @@ bool isAlreadySolved(const Board &board, pair<int,int> a, pair<int,int> b)
     return false;
 }
 
+/* ===============================================================
+                           NEW LOGIC
+   =============================================================== */
+
 vector<vector<pair<int,int>>> findEmptyRegions(const Board &board) {
     vector<vector<bool>> visited(GRID, vector<bool>(GRID, false));
     vector<vector<pair<int,int>>> regions;
     
+    //flood fill
     function<void(int, int, vector<pair<int,int>>&)> flood = 
         [&](int r, int c, vector<pair<int,int>> &region) {
+
+        //grid border reached
         if (r < 0 || r >= GRID || c < 0 || c >= GRID) return;
+
+        //cell already visited
         if (visited[r][c]) return;
         
+        //used cell
         const Cell &cell = board.board[r][c];
         if (cell.hasPipe || cell.isTerminal) return;
         
         visited[r][c] = true;
         region.push_back({r, c});
         
+        //flood fill recursion
         flood(r+1, c, region);
         flood(r-1, c, region);
         flood(r, c+1, region);
@@ -285,19 +317,21 @@ vector<vector<pair<int,int>>> findEmptyRegions(const Board &board) {
     return regions;
 }
 
-vector<pair<int,int>> bfsWithRegionFill(const Board &board, 
+vector<pair<int,int>> regionPath(const Board &board, 
                                         pair<int,int> start, 
                                         pair<int,int> goal) {
-    cout << "\n=== bfsWithRegionFill called ===\n";
+    cout << "\n=== regionPath called ===\n";
     
+    //finding shortest path
     vector<pair<int,int>> shortestPath = bfsPath(board, start, goal);
     if (shortestPath.empty()) return {};
-    
     int shortestLen = shortestPath.size();
     cout << "Shortest path length: " << shortestLen << "\n";
     
+    //maximum difference between new and shortest path
     int maxExtra = 25;
     
+    //region vector and region values for each cell
     auto emptyRegions = findEmptyRegions(board);
     vector<vector<int>> regionValue(GRID, vector<int>(GRID, 0));
     
@@ -312,8 +346,10 @@ vector<pair<int,int>> bfsWithRegionFill(const Board &board,
     vector<vector<int>> bestScore(GRID, vector<int>(GRID, INT_MAX));
     vector<vector<int>> distance(GRID, vector<int>(GRID, INT_MAX));
     vector<vector<pair<int,int>>> parent(GRID, vector<pair<int,int>>(GRID, {-1,-1}));
-    vector<vector<bool>> finalized(GRID, vector<bool>(GRID, false)); // NEW: Track finalized cells
+    vector<vector<bool>> finalized(GRID, vector<bool>(GRID, false)); //tracking finalised cells
     
+    //modified dijkstra's algorithm
+
     priority_queue<pair<int, pair<int,int>>, 
                    vector<pair<int, pair<int,int>>>,
                    greater<pair<int, pair<int,int>>>> pq;
@@ -331,10 +367,9 @@ vector<pair<int,int>> bfsWithRegionFill(const Board &board,
         
         auto [r, c] = pos;
         
-        // Skip if already finalized (this is the key fix!)
+        //skip if finalised
         if (finalized[r][c]) continue;
         
-        // Mark as finalized - we won't update this cell again
         finalized[r][c] = true;
         
         if (r == goal.first && c == goal.second) {
@@ -344,6 +379,7 @@ vector<pair<int,int>> bfsWithRegionFill(const Board &board,
         
         if (distance[r][c] >= shortestLen + maxExtra) continue;
         
+        //checking neighbours
         for (int k = 0; k < 4; k++) {
             int nr = r + dr[k];
             int nc = c + dc[k];
@@ -354,10 +390,13 @@ vector<pair<int,int>> bfsWithRegionFill(const Board &board,
             if (cell.hasPipe) continue;
             if (cell.isTerminal && !(nr == goal.first && nc == goal.second)) continue;
             
-            // Don't update finalized cells
+            //skip finalised cells
             if (finalized[nr][nc]) continue;
             
             int newDist = distance[r][c] + 1;
+
+            /*calculating priority based on region value
+            -->larger regions have lower region values => higher priority*/
             int newScore = currentScore + 1 - (regionValue[nr][nc] * 2);
             
             if (newScore < bestScore[nr][nc]) {
@@ -370,11 +409,11 @@ vector<pair<int,int>> bfsWithRegionFill(const Board &board,
     }
     
     if (!finalized[goal.first][goal.second]) {
-        cout << "Could not reach goal!\n";
+        cout << "Could not reach goal\n";
         return shortestPath;
     }
     
-    // Reconstruct path
+    //reconstruct path
     vector<pair<int,int>> path;
     pair<int,int> cur = goal;
     
@@ -387,15 +426,20 @@ vector<pair<int,int>> bfsWithRegionFill(const Board &board,
     
     cout << "SUCCESS! Shortest: " << shortestLen << " cells, Region-aware: " << path.size() << " cells\n";
     
+    //count region cells
     int regionCells = 0;
     for (const auto &[r, c] : path) {
         if (regionValue[r][c] > 0) regionCells++;
     }
     cout << "Path goes through " << regionCells << " region cells\n";
     
+    //choose path
     return (path.size() <= shortestLen + maxExtra) ? path : shortestPath;
 }
 
+/* ===============================================================
+                            ALGORITHMS
+   =============================================================== */
 
 vector<pair<int,int>> algorithm(Board &board)
 {
@@ -454,9 +498,10 @@ vector<pair<int,int>> algorithm(Board &board)
     return {};  
 }
 
-vector<pair<int,int>> enhancedAlgorithm(Board &board) {
+vector<pair<int,int>> algorithm2(Board &board) {
     unordered_map<int, vector<pair<int,int>>> terminals;
     
+    //collect terminal pairs
     for (int r = 0; r < GRID; r++) {
         for (int c = 0; c < GRID; c++) {
             const Cell &cell = board.board[r][c];
@@ -480,8 +525,11 @@ vector<pair<int,int>> enhancedAlgorithm(Board &board) {
         pairs.push_back(tp);
     }
     
+    //sort by euclidean distance
     shell_sort(pairs);
+    reverse(pairs.begin(), pairs.end());
     
+    //remove used pairs
     pairs.erase(
         remove_if(pairs.begin(), pairs.end(),
                   [&](const TerminalPair &tp) {
@@ -489,23 +537,27 @@ vector<pair<int,int>> enhancedAlgorithm(Board &board) {
                   }),
         pairs.end());
     
+    //flood fill
     auto emptyRegions = findEmptyRegions(board);
     
     cout << "\n=== AI TURN ===\n";
     cout << "Found " << emptyRegions.size() << " regions\n";
     for (size_t i = 0; i < emptyRegions.size(); i++) {
-        cout << "  Region " << i << ": " << emptyRegions[i].size() << " cells\n";
+        cout << "Region " << i << ": " << emptyRegions[i].size() << " cells\n";
     }
 
+    //scoring pairs
     vector<pair<double, int>> scoredPairs;
     
     for (size_t i = 0; i < pairs.size(); i++) {
         const auto &tp = pairs[i];
-        double score = tp.dist;
+        double score = -tp.dist;
         
+        //checking proximity to emoty regions
         for (const auto &region : emptyRegions) {
             if (region.size() < 2) continue;
             
+            //checking proximity to terminals
             bool nearStart = false, nearEnd = false;
             for (const auto &[r, c] : region) {
                 if (abs(r - tp.a.first) + abs(c - tp.a.second) <= 4)
@@ -514,6 +566,7 @@ vector<pair<int,int>> enhancedAlgorithm(Board &board) {
                     nearEnd = true;
             }
             
+            //higher priority if both terminals are near the region
             if (nearStart && nearEnd) {
                 score -= region.size() * 3.0;
             }
@@ -522,12 +575,14 @@ vector<pair<int,int>> enhancedAlgorithm(Board &board) {
         scoredPairs.push_back({score, i});
     }
     
+    //sorting scored pairs
     sort(scoredPairs.begin(), scoredPairs.end());
     
+    //choosing best pair
     for (const auto &[score, idx] : scoredPairs) {
         const auto &tp = pairs[idx];
         
-        vector<pair<int,int>> path = bfsWithRegionFill(board, tp.a, tp.b);
+        vector<pair<int,int>> path = regionPath(board, tp.a, tp.b);
         
         if (!path.empty()) {
             return path;
@@ -537,23 +592,9 @@ vector<pair<int,int>> enhancedAlgorithm(Board &board) {
     return {};
 }
 
-int countLines(const std::string &filePath) {
-  std::ifstream file(filePath);
-
-  if (!file.is_open()) {
-    return -1; // Could not open file
-  }
-
-  int count = 0;
-  std::string line;
-
-  while (std::getline(file, line)) {
-    count++;
-  }
-
-  return count;
-}
-
+/* ===============================================================
+                               MAIN
+   =============================================================== */
 
 int main() {
   auto files = getLevelFiles("levels");
@@ -635,7 +676,7 @@ int main() {
   if (windowW > 1800) windowW = 1800;
   if (windowH > 1000)  windowH = 1000;
 
-  SetConfigFlags(FLAG_WINDOW_TOPMOST);
+  //SetConfigFlags(FLAG_WINDOW_TOPMOST);
   InitWindow(windowW, windowH, "Flow Game - Raylib");
   SetTargetFPS(60);
 
@@ -655,6 +696,12 @@ int main() {
   if(posX<0) posX = 0;
   if(posY<0) posY = 0;
   SetWindowPosition(posX,posY);
+
+  SetWindowState(FLAG_WINDOW_TOPMOST);
+  BeginDrawing();
+  ClearBackground(RAYWHITE);
+  EndDrawing();
+  ClearWindowState(FLAG_WINDOW_TOPMOST);
 
   // --------------------------------
   // Center the grid inside the window
@@ -791,8 +838,7 @@ int main() {
     // -----------------------------
     else if (state == AI_TURN) {
 
-      // Call your algorithm
-      auto ai_path = enhancedAlgorithm(board);
+      auto ai_path = algorithm2(board);
       if (!ai_path.empty())
           board.makeMove(ai_path);
 
