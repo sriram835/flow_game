@@ -1,278 +1,47 @@
-#include "algorithm.h"
-#include <queue>
-#include <limits>
-#include <unordered_map>
-#include <set>
-#include <algorithm>
-#include <cmath>
-#include <random>
-#include <iostream>
+#include "game_algorithms.h"
 
 using namespace std;
 
-int manhattan(int x1, int y1, int x2, int y2) {
-  return abs(x1 - x2) + abs(y1 - y2);
+vector<pair<int, int>> algorithm(const Board board) {
+  unordered_map<int, pair<pair<int, int>, pair<int, int>>> terminals =
+      getTerminals(board);
+
+  map<int, vector<int>> distances_colors = getDistanceColor(terminals);
+
+  // For terminals
+  /*
+for (const auto &entry : terminals) {
+int color = entry.first;
+
+auto first = entry.second.first;
+auto second = entry.second.second;
+
+cout << "Color " << color << ": ";
+cout << "(" << first.first << ", " << first.second << ") ";
+cout << "(" << second.first << ", " << second.second << ")";
+cout << '\n';
 }
+  */
+  for (const auto &entry : distances_colors) {
+    int distance = entry.first;
+    const vector<int> &colors = entry.second;
 
-bool terminalsReachable(const Board &board, int sr, int sc, int er, int ec) {
-  int N = GRID;
-  vector<vector<bool>> vis(N, vector<bool>(N, false));
-  queue<pair<int,int>> q;
-  q.push({sr, sc});
-  vis[sr][sc] = true;
-
-  while (!q.empty()) {
-    auto cur = q.front(); q.pop();
-    int r = cur.first, c = cur.second;
-    if (r == er && c == ec) return true;
-
-    int dr[4] = {-1, 0, 0, 1};
-    int dc[4] = {0, -1, 1, 0};
-    for (int k=0;k<4;k++){
-      int nr = r + dr[k], nc = c + dc[k];
-      if (nr < 0 || nc < 0 || nr >= N || nc >= N) continue;
-      if (vis[nr][nc]) continue;
-      if (board.board[nr][nc].hasPipe) continue;
-      vis[nr][nc] = true;
-      q.push({nr, nc});
+    cout << "Distance " << distance << ": ";
+    for (int c : colors) {
+      cout << c << " ";
     }
-  }
-  return false;
-}
+    cout << '\n';
 
-vector<vector<int>> getTerminals(Board board) {
-  unordered_map<int, vector<pair<int,int>>> colorGroups;
-  for (int r = 0; r < GRID; ++r) {
-    for (int c = 0; c < GRID; ++c) {
-      int colr = board.board[r][c].color;
-      if (colr != 0 && board.board[r][c].isTerminal && !board.board[r][c].hasPipe) {
-        colorGroups[colr].push_back({r,c});
-      }
-    }
-  } 
+    for (int c : colors) {
+      auto start_index = terminals[c].first;
+      auto end_index = terminals[c].second;
+      vector<vector<int>> region = getRegion(start_index, end_index, board);
 
-  vector<vector<int>> result;
-  for (auto &kv : colorGroups) {
-    int color = kv.first;
-    auto &terms = kv.second;
-    if (terms.size() != 2) continue;
-    auto [r1,c1] = terms[0];
-    auto [r2,c2] = terms[1];
+      vector<pair<int, int>> path =
+          dfsFindPath(start_index, end_index, board, region);
 
-    if (terminalsReachable(board, r1, c1, r2, c2)) {
-      result.push_back({color, r1, c1});
-      result.push_back({color, r2, c2});
-    }
-  }
-
-  return result;
-}
-
-vector<pair<int, int>> getNeighbors(int color, int row, int col,
-                                    const Board &board,
-                                    const vector<vector<bool>> &visited) {
-  vector<pair<int,int>> valid;
-  int N = GRID;
-  if (row-1 >= 0 && !visited[row-1][col] &&
-      !board.board[row-1][col].hasPipe &&
-      !(board.board[row-1][col].isTerminal && board.board[row-1][col].color != color)) {
-    valid.push_back({row-1, col});
-  }
-  if (col-1 >= 0 && !visited[row][col-1] &&
-      !board.board[row][col-1].hasPipe &&
-      !(board.board[row][col-1].isTerminal && board.board[row][col-1].color != color)) {
-    valid.push_back({row, col-1});
-  }
-  if (col+1 < N && !visited[row][col+1] &&
-      !board.board[row][col+1].hasPipe &&
-      !(board.board[row][col+1].isTerminal && board.board[row][col+1].color != color)) {
-    valid.push_back({row, col+1});
-  }
-  if (row+1 < N && !visited[row+1][col] &&
-      !board.board[row+1][col].hasPipe &&
-      !(board.board[row+1][col].isTerminal && board.board[row+1][col].color != color)) {
-    valid.push_back({row+1, col});
-  }
-  return valid;
-}
-
-vector<pair<int, int>>
-reconstructPath(int end_row, int end_col,
-                const vector<vector<pair<int, int>>> &parents) {
-  vector<pair<int,int>> path;
-  int r = end_row, c = end_col;
-  while (r != -1 && c != -1) {
-    path.push_back({r,c});
-    auto p = parents[r][c];
-    r = p.first; c = p.second;
-  }
-  reverse(path.begin(), path.end());
-  return path;
-}
-
-bool hasDeadSpace(const Board &b) {
-  int N = GRID;
-  vector<vector<bool>> seen(N, vector<bool>(N,false));
-  int dr[4] = {-1,0,0,1};
-  int dc[4] = {0,-1,1,0};
-
-  for (int r=0;r<N;r++){
-    for (int c=0;c<N;c++){
-      if (seen[r][c]) continue;
-      if (b.board[r][c].hasPipe) { seen[r][c]=true; continue; }
-
-      int freeCount = 0;
-      int termCount = 0;
-      queue<pair<int,int>> q; q.push({r,c}); seen[r][c]=true;
-      while (!q.empty()) {
-        auto cur = q.front(); q.pop();
-        int cr = cur.first, cc = cur.second;
-        freeCount++;
-        if (b.board[cr][cc].isTerminal && !b.board[cr][cc].hasPipe) termCount++;
-        for (int k=0;k<4;k++){
-          int nr = cr + dr[k], nc = cc + dc[k];
-          if (nr<0||nc<0||nr>=N||nc>=N) continue;
-          if (seen[nr][nc]) continue;
-          if (b.board[nr][nc].hasPipe) { seen[nr][nc]=true; continue; }
-          seen[nr][nc] = true;
-          q.push({nr,nc});
-        }
-      }
-      if (freeCount > 0 && termCount == 0) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-struct ANode {
-  int r,c;
-  int g;    
-  int h;    
-  int f;     
-  int pr, pc; 
-  int dirFromParent;
-};
-
-struct AComp {
-  bool operator()(const ANode& a, const ANode& b) const {
-    if (a.f != b.f) return a.f > b.f;
-    return a.g < b.g;
-  }
-};
-
-bool creates1x1Hole(const Board &board, int nr, int nc) {
-  int N = GRID;
-  auto isFree = [&](int r,int c)->bool {
-    if (r<0||c<0||r>=N||c>=N) return false;
-    if (r==nr && c==nc) return false; 
-    return !board.board[r][c].hasPipe;
-  };
-  int dr[4]={-1,0,0,1};
-  int dc[4]={0,-1,1,0};
-  for (int k=0;k<4;k++){
-    int ar = nr + dr[k], ac = nc + dc[k];
-    if (ar<0||ac<0||ar>=N||ac>=N) continue;
-    if (!isFree(ar,ac)) continue;
-    int freeAdj = 0;
-    for (int t=0;t<4;t++){
-      int br = ar + dr[t], bc = ac + dc[t];
-      if (br<0||bc<0||br>=N||bc>=N) continue;
-      if (isFree(br,bc)) freeAdj++;
-    }
-    if (freeAdj == 0) return true;
-  }
-  return false;
-}
-
-vector<pair<int,int>> AStarForPair(const Board &board, pair<int,int> start, pair<int,int> goal) {
-  int N = GRID;
-  int sr = start.first, sc = start.second;
-  int tr = goal.first, tc = goal.second;
-  int color = board.board[sr][sc].color;
-
-  priority_queue<ANode, vector<ANode>, AComp> pq;
-  const int SCALE = 100;  
-
-  vector<vector<int>> bestG(N, vector<int>(N, numeric_limits<int>::max()));
-  vector<vector<pair<int,int>>> parent(N, vector<pair<int,int>>(N, {-1,-1}));
-  vector<vector<int>> parentDir(N, vector<int>(N, 0));
-
-  ANode startNode;
-  startNode.r = sr; startNode.c = sc;
-  startNode.g = 0;
-  startNode.h = manhattan(sr, sc, tr, tc) * SCALE;
-  startNode.f = startNode.g + startNode.h;
-  startNode.pr = -1; startNode.pc = -1; startNode.dirFromParent = 0;
-
-  pq.push(startNode);
-  bestG[sr][sc] = 0;
-
-  int dr[4] = {-1,0,0,1};
-  int dc[4] = {0,-1,1,0};
-  int dirId[4] = {1,2,3,4};
-
-  while (!pq.empty()) {
-    ANode cur = pq.top(); pq.pop();
-    int r = cur.r, c = cur.c;
-    if (cur.g != bestG[r][c]) continue;
-
-    if (r == tr && c == tc) {
-      vector<pair<int,int>> path;
-      int cr = r, cc = c;
-      while (!(cr == -1 && cc == -1)) {
-        path.push_back({cr,cc});
-        auto p = parent[cr][cc];
-        int prr = p.first, pcc = p.second;
-        if (prr == -1 && pcc == -1) break;
-        cr = prr; cc = pcc;
-      }
-      reverse(path.begin(), path.end());
-      return path;
-    }
-
-    for (int k=0;k<4;k++){
-      int nr = r + dr[k], nc = c + dc[k];
-      if (nr < 0 || nc < 0 || nr >= N || nc >= N) continue;
-      if (board.board[nr][nc].hasPipe && !(nr==tr && nc==tc)) continue;
-      if (board.board[nr][nc].isTerminal && board.board[nr][nc].color != color && !(nr==tr && nc==tc)) continue;
-
-      int newG = cur.g + 1 * SCALE;
-      int newH = manhattan(nr, nc, tr, tc) * SCALE;
-
-      int bias = 0;
-
-      if (creates1x1Hole(board, nr, nc)) {
-        bias += 2000 * SCALE / 100;
-      }
-
-      Board tmp = board;
-      tmp.board[nr][nc].hasPipe = true;
-      tmp.board[nr][nc].color = color;
-      if (hasDeadSpace(tmp)) {
-        bias += 1500 * SCALE / 100;
-      }
-
-      int dir = dirId[k];
-      if (cur.dirFromParent != 0 && cur.dirFromParent == dir) {
-        bias -= 20;
-      }
-
-      if (nr == 0 || nc == 0 || nr == N-1 || nc == N-1) {
-        bias -= 10;
-      }
-
-      int candidateF = newG + newH + bias;
-      if (newG < bestG[nr][nc]) {
-        bestG[nr][nc] = newG;
-        parent[nr][nc] = {r,c};
-        parentDir[nr][nc] = dir;
-        ANode next;
-        next.r = nr; next.c = nc;
-        next.g = newG; next.h = newH; next.f = candidateF;
-        next.pr = r; next.pc = c; next.dirFromParent = dir;
-        pq.push(next);
+      if (!path.empty()) {
+        return path;
       }
     }
   }
@@ -280,67 +49,252 @@ vector<pair<int,int>> AStarForPair(const Board &board, pair<int,int> start, pair
   return {};
 }
 
-int pairDifficulty(const Board &board, pair<int,int> a, pair<int,int> b) {
-  int base = manhattan(a.first,a.second,b.first,b.second) * 100;
-  int freer = 0;
-  int dr[4] = {-1,0,0,1};
-  int dc[4] = {0,-1,1,0};
-  for (int i=0;i<4;i++){
-    int r = a.first + dr[i], c = a.second + dc[i];
-    if (r>=0 && c>=0 && r<GRID && c<GRID && !board.board[r][c].hasPipe) freer++;
-    r = b.first + dr[i]; c = b.second + dc[i];
-    if (r>=0 && c>=0 && r<GRID && c<GRID && !board.board[r][c].hasPipe) freer++;
+unordered_map<int, pair<pair<int, int>, pair<int, int>>>
+getTerminals(const Board &board) {
+
+  unordered_map<int, pair<pair<int, int>, pair<int, int>>> terminals;
+
+  for (int i = 0; i < board.board.size(); i++) {
+    for (int j = 0; j < board.board[i].size(); j++) {
+
+      const auto &cell = board.board[i][j];
+
+      if (cell.isTerminal && !cell.hasPipe) {
+
+        auto it = terminals.find(cell.color);
+
+        if (it == terminals.end()) {
+          // first terminal of this color
+          terminals.emplace(cell.color,
+                            make_pair(make_pair(i, j), make_pair(-1, -1)));
+        } else {
+          // second terminal of this color
+          it->second.second = make_pair(i, j);
+        }
+      }
+    }
   }
-  return base - freer*10;
+
+  return terminals;
 }
 
-vector<pair<int,int>> algorithm(const Board &board) {
-  vector<vector<int>> terms = getTerminals(board);
-  if (terms.empty()) return {};
+int distanceBetween(const pair<int, int> &a, const pair<int, int> &b) {
+  return abs(a.first - b.first) + abs(a.second - b.second);
+}
 
-  unordered_map<int, vector<pair<int,int>>> groups;
-  for (auto &t : terms) {
-    int color = t[0], r = t[1], c = t[2];
-    groups[color].push_back({r,c});
+map<int, vector<int>> getDistanceColor(
+    unordered_map<int, pair<pair<int, int>, pair<int, int>>> terminals) {
+  map<int, vector<int>> distances_colors;
+
+  for (const auto &[color, terminalPair] : terminals) {
+
+    const auto &t1 = terminalPair.first;
+    const auto &t2 = terminalPair.second;
+
+    // Safety: ensure both terminals exist
+    if (t2.first == -1)
+      continue;
+
+    int dist = distanceBetween(t1, t2);
+
+    distances_colors[dist].push_back(color);
   }
 
-  struct Candidate { int color; pair<int,int> a,b; int diff; };
-  vector<Candidate> cand;
-  for (auto &kv : groups) {
-    if (kv.second.size() != 2) continue;
-    Candidate cc;
-    cc.color = kv.first;
-    cc.a = kv.second[0];
-    cc.b = kv.second[1];
-    cc.diff = pairDifficulty(board, cc.a, cc.b);
-    cand.push_back(cc);
+  /*
+// Debug print (optional)
+for (const auto &[dist, colors] : distances_colors) {
+cout << "Distance " << dist << ": ";
+for (int c : colors) {
+cout << c << " ";
+}
+cout << '\n';
+}
+*/
+  return distances_colors;
+}
+
+vector<vector<int>> getRegion(pair<int, int> start_index,
+                              pair<int, int> end_index, const Board board) {
+  int n = board.board.size();
+  if (n == 0) {
+    return {};
   }
 
-  if (cand.empty()) return {};
+  int m = board.board[0].size();
 
-  sort(cand.begin(), cand.end(), [](const Candidate &x, const Candidate &y){
-    return x.diff < y.diff;
-  });
+  vector<vector<int>> region = vector(n, vector(m, 0));
+  int orn_x1 = start_index.second;
+  int orn_y1 = n - start_index.first - 1;
 
-  for (auto &c : cand) {
-    cout << "AI: trying color " << c.color
-         << " endpoints (" << c.a.first << "," << c.a.second << ") <- -> ("
-         << c.b.first << "," << c.b.second << "), difficulty=" << c.diff << "\n";
-    auto p1 = AStarForPair(board, c.a, c.b);
-    auto p2 = AStarForPair(board, c.b, c.a);
+  int orn_x2 = end_index.second;
+  int orn_y2 = n - end_index.first - 1;
 
-    cout << "AI: A* results for color " << c.color
-         << " p1.size=" << p1.size() << " p2.size=" << p2.size() << "\n";
+  cout << "ORN X1: " << orn_x1 << "\n";
+  cout << "ORN Y1: " << orn_y1 << "\n";
+  cout << "ORN X2: " << orn_x2 << "\n";
+  cout << "ORN Y2: " << orn_y2 << "\n";
 
-    vector<pair<int,int>> chosen;
-    if (!p1.empty() && !p2.empty()) {
-      if (p1.size() <= p2.size()) chosen = p1; else chosen = p2;
-    } else if (!p1.empty()) chosen = p1;
-    else if (!p2.empty()) chosen = p2;
+  // Center point
+  double cx = (orn_x1 + orn_x2) / 2.0;
+  double cy = (orn_y1 + orn_y2) / 2.0;
 
-    if (!chosen.empty()) {
-      return chosen;
+  cout << "CX: " << cx << "\n";
+  cout << "CY: " << cy << "\n";
+
+  // Direction of original line
+  double dx = orn_x1 - orn_x2;
+  double dy = orn_y1 - orn_y2;
+
+  cout << "DX: " << dx << "\n";
+  cout << "DY: " << dy << "\n";
+
+  // Length of original segment
+  double len = sqrt(dx * dx + dy * dy);
+  cout << "LEN: " << len << "\n";
+
+  if (len == 0)
+    return region;
+
+  // Perpendicular unit vector
+  double px = -dy / len;
+  double py = dx / len;
+
+  cout << "PX: " << px << "\n";
+  cout << "PY: " << py << "\n";
+
+  // Half-length of perpendicular segment
+  double halfLen = len / 2.0;
+
+  // Endpoints of perpendicular line
+  double x1 = cx + px * halfLen;
+  double y1 = cy + py * halfLen;
+  double x2 = cx - px * halfLen;
+  double y2 = cy - py * halfLen;
+  cout << x1 << " " << y1 << "\n";
+  cout << x2 << " " << y2 << "\n";
+  int temp;
+
+  vector<pair<double, double>> polypoints;
+  polypoints.push_back({x1, y1});
+  polypoints.push_back(
+      {static_cast<double>(orn_x1), static_cast<double>(orn_y1)});
+  polypoints.push_back({x2, y2});
+
+  polypoints.push_back(
+      {static_cast<double>(orn_x2), static_cast<double>(orn_y2)});
+
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < m; j++) {
+
+      double x = static_cast<double>(j);
+      double y = static_cast<double>(n - i - 1);
+
+      vector<pair<double, double>> samples = {
+          {x, y},
+          {x - REGION_THRESHOLD, y},
+          {x + REGION_THRESHOLD, y},
+          {x, y - REGION_THRESHOLD},
+          {x, y + REGION_THRESHOLD},
+          {x - REGION_THRESHOLD, y - REGION_THRESHOLD},
+          {x - REGION_THRESHOLD, y + REGION_THRESHOLD},
+          {x + REGION_THRESHOLD, y - REGION_THRESHOLD},
+          {x + REGION_THRESHOLD, y + REGION_THRESHOLD}};
+
+      for (const auto &pt : samples) {
+        if (pointInPolygon(polypoints, pt)) {
+          region[i][j] = 1;
+          break;
+        }
+      }
     }
+  }
+  /*
+for (int i = 0; i < n; i++) {
+for (int j = 0; j < m; j++) {
+cout << region[i][j] << " ";
+}
+cout << "\n";
+}
+*/
+
+  return region;
+}
+
+bool pointInPolygon(const vector<pair<double, double>> &poly,
+                    pair<double, double> p) {
+  bool inside = false;
+  int n = poly.size();
+
+  for (int i = 0, j = n - 1; i < n; j = i++) {
+    double xi = poly[i].first, yi = poly[i].second;
+    double xj = poly[j].first, yj = poly[j].second;
+
+    double px = p.first, py = p.second;
+
+    if ((yi > py) != (yj > py)) {
+      double xIntersect = (xj - xi) * (py - yi) / (yj - yi) + xi;
+
+      if (px < xIntersect)
+        inside = !inside;
+    }
+  }
+  return inside;
+}
+
+bool dfsUtil(int i, int j, int ei, int ej, const Board &board,
+             const vector<vector<int>> &region, vector<vector<bool>> &visited,
+             vector<pair<int, int>> &path) {
+
+  // Out of bounds
+  if (i < 0 || j < 0 || i >= board.board.size() || j >= board.board[0].size())
+    return false;
+
+  // Not allowed by region
+  if (region[i][j] == 0)
+    return false;
+
+  // Already visited
+  if (visited[i][j])
+    return false;
+
+  // Blocked cell (adjust if needed)
+  if (board.board[i][j].hasPipe)
+    return false;
+
+  visited[i][j] = true;
+  path.push_back({i, j});
+
+  // Reached destination
+  if (i == ei && j == ej)
+    return true;
+
+  // 4-directional movement
+  static int dx[4] = {1, -1, 0, 0};
+  static int dy[4] = {0, 0, 1, -1};
+
+  for (int d = 0; d < 4; d++) {
+    if (dfsUtil(i + dx[d], j + dy[d], ei, ej, board, region, visited, path))
+      return true;
+  }
+
+  // Backtrack
+  path.pop_back();
+  return false;
+}
+
+vector<pair<int, int>> dfsFindPath(pair<int, int> start, pair<int, int> end,
+                                   const Board &board,
+                                   const vector<vector<int>> &region) {
+
+  int n = board.board.size();
+  int m = board.board[0].size();
+
+  vector<vector<bool>> visited(n, vector<bool>(m, false));
+  vector<pair<int, int>> path;
+
+  if (dfsUtil(start.first, start.second, end.first, end.second, board, region,
+              visited, path)) {
+    return path;
   }
 
   return {};
