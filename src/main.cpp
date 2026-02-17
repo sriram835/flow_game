@@ -329,7 +329,7 @@ vector<pair<int,int>> regionPath(const Board &board,
     cout << "Shortest path length: " << shortestLen << "\n";
     
     //maximum difference between new and shortest path
-    int maxExtra = 25;
+    int maxExtra = 20;
     
     //region vector and region values for each cell
     auto emptyRegions = findEmptyRegions(board);
@@ -763,7 +763,7 @@ int main() {
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             if (row != -1 && col != -1) {
                 Cell &c = board.board[row][col];
-                if (c.isTerminal) {
+                if (c.isTerminal && !c.hasPipe) {
                     isDragging = true;
                     // directionLocked = false;
                     dragPath.clear();
