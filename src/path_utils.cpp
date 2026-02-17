@@ -13,7 +13,8 @@ std::vector<Position> bfsShortestPath(
     const Board& board,
     const Position& start,
     const Position& goal,
-    const std::set<Position>& allowedRegion
+    const std::set<Position>& allowedRegion,
+    int pathColor
 ) {
     std::vector<Position> emptyResult;
     if (start.row == goal.row && start.col == goal.col) return {start};
@@ -30,23 +31,52 @@ std::vector<Position> bfsShortestPath(
         allowedKeys.insert(posKey(p));
     }
 
-    std::queue<Position> q;
+    struct Node {
+        Position pos;
+        int conflict;
+        int length;
+    };
+
+    auto cmp = [](const Node& a, const Node& b) {
+        if (a.conflict != b.conflict) return a.conflict > b.conflict;
+        if (a.length != b.length) return a.length > b.length;
+        if (a.pos.row != b.pos.row) return a.pos.row > b.pos.row;
+        return a.pos.col > b.pos.col;
+    };
+
+    std::priority_queue<Node, std::vector<Node>, decltype(cmp)> pq(cmp);
+    std::unordered_map<std::string, std::pair<int,int>> bestCost; // key -> (conflict, length)
     std::unordered_map<std::string, Position> parent;
     parent.reserve(allowedRegion.size() * 2 + 1);
-    std::unordered_set<std::string> visited;
-    visited.reserve(allowedRegion.size() * 2 + 1);
 
-    q.push(start);
-    visited.insert(posKey(start));
+    auto startKey = posKey(start);
+    bestCost[startKey] = {0,0};
+    pq.push({start, 0, 0});
 
     int dr[4] = {1,-1,0,0};
     int dc[4] = {0,0,1,-1};
 
     bool found = false;
-    while (!q.empty()) {
-        Position cur = q.front(); q.pop();
+    Position finalPos = start;
 
-        for (int i=0;i<4;i++) {
+    while (!pq.empty()) {
+        Node curNode = pq.top(); pq.pop();
+        Position cur = curNode.pos;
+        std::string curKey = posKey(cur);
+
+        auto itBest = bestCost.find(curKey);
+        if (itBest == bestCost.end()) continue;
+        if (curNode.conflict > itBest->second.first) continue;
+        if (curNode.conflict == itBest->second.first &&
+            curNode.length > itBest->second.second) continue;
+
+        if (cur.row == goal.row && cur.col == goal.col) {
+            found = true;
+            finalPos = cur;
+            break;
+        }
+
+        for (int i = 0; i < 4; i++) {
             int nr = cur.row + dr[i];
             int nc = cur.col + dc[i];
             Position nxt{nr,nc};
@@ -54,28 +84,38 @@ std::vector<Position> bfsShortestPath(
             if (!board.isInside(nr,nc)) continue;
 
             std::string nextKey = posKey(nxt);
-            // membership check in allowed region using unordered_set
             if (allowedKeys.find(nextKey) == allowedKeys.end()) continue;
 
-            if (visited.find(nextKey) != visited.end()) continue;
-
-            visited.insert(nextKey);
-            parent[nextKey] = cur;
-
-            if (nxt.row == goal.row && nxt.col == goal.col) {
-                found = true;
-                break;
+            // incremental conflict: neighbors of nxt that are foreign-colored pipes
+            int addConflict = 0;
+            for (int k = 0; k < 4; k++) {
+                int ar = nr + dr[k];
+                int ac = nc + dc[k];
+                if (!board.isInside(ar,ac)) continue;
+                const Cell& ncell = board.getCell(ar,ac);
+                if (ncell.hasPipe && ncell.color != pathColor)
+                    addConflict++;
             }
-            q.push(nxt);
+
+            int newConflict = curNode.conflict + addConflict;
+            int newLength   = curNode.length + 1;
+
+            auto it = bestCost.find(nextKey);
+            if (it == bestCost.end() ||
+                newConflict < it->second.first ||
+                (newConflict == it->second.first && newLength < it->second.second)) {
+                bestCost[nextKey] = {newConflict, newLength};
+                parent[nextKey] = cur;
+                pq.push({nxt, newConflict, newLength});
+            }
         }
-        if (found) break;
     }
 
     if (!found) return emptyResult;
 
-    // reconstruct path
+    // reconstruct minimal-conflict path
     std::vector<Position> path;
-    Position cur = goal;
+    Position cur = finalPos;
     while (!(cur.row == start.row && cur.col == start.col)) {
         path.push_back(cur);
         cur = parent[posKey(cur)];
