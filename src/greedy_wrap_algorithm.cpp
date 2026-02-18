@@ -61,7 +61,7 @@ vector<pair<int, int>> dijkstraPath(const Board &board, int startRow, int startC
 
       reverse(path.begin(), path.end());
       
-      // Print the total weight of the path
+    
       cout << "Path found with total weight: " << dist[endRow][endCol] << endl;
       
       return path;
