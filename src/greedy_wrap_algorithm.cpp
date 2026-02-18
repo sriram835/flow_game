@@ -15,7 +15,7 @@ double calculateRadialWeight(int row, int col, int gridSize) {
 
   int distanceToBorder = min({distanceToTop, distanceToBottom, distanceToLeft, distanceToRight});
   
-  // Set outermost ring weight to 0
+  //  outermost ring weight to 0
   if (distanceToBorder == 0) {
     return 0.0;
   }
@@ -102,7 +102,7 @@ vector<pair<int, int>> dijkstraPath(const Board &board, int startRow, int startC
 
 std::vector<std::pair<int, int>> greedyWrapAlgorithm(const Board &board) {
   int gridSize = GRID;
-  vector<pair<int, int>> terminals[11]; // Support up to 10 colors
+  vector<pair<int, int>> terminals[11]; 
 
   for (int i = 0; i < gridSize; i++) {
     for (int j = 0; j < gridSize; j++) {
