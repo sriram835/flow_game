@@ -14,7 +14,13 @@ double calculateRadialWeight(int row, int col, int gridSize) {
   int distanceToRight = gridSize - 1 - col;
 
   int distanceToBorder = min({distanceToTop, distanceToBottom, distanceToLeft, distanceToRight});
-  double weight = pow(10.0, distanceToBorder);
+  
+  // Set outermost ring weight to 0
+  if (distanceToBorder == 0) {
+    return 0.0;
+  }
+  
+  double weight = pow(10.0*GRID, distanceToBorder);
 
   return weight;
 }
@@ -54,6 +60,10 @@ vector<pair<int, int>> dijkstraPath(const Board &board, int startRow, int startC
       }
 
       reverse(path.begin(), path.end());
+      
+      // Print the total weight of the path
+      cout << "Path found with total weight: " << dist[endRow][endCol] << endl;
+      
       return path;
     }
 
@@ -73,6 +83,10 @@ vector<pair<int, int>> dijkstraPath(const Board &board, int startRow, int startC
       }
 
       double weight = calculateRadialWeight(nr, nc, gridSize);
+      // Terminals have 0 cost to enter since they're endpoints
+      if (cell.isTerminal) {
+        weight = 0;
+      }
       double newDist = dist[row][col] + weight;
 
       if (newDist < dist[nr][nc]) {
@@ -119,7 +133,7 @@ std::vector<std::pair<int, int>> greedyWrapAlgorithm(const Board &board) {
     unsolved_pairs.push_back({distance, color, r1, c1, r2, c2});
   }
 
-  sort(unsolved_pairs.begin(), unsolved_pairs.end());
+  //sort(unsolved_pairs.begin(), unsolved_pairs.end());
   for (const auto &pair_info : unsolved_pairs) {
     int r1 = get<2>(pair_info);
     int c1 = get<3>(pair_info);
