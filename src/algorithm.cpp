@@ -41,6 +41,12 @@ cout << '\n';
           dfsFindPath(start_index, end_index, board, region);
 
       if (!path.empty()) {
+
+        cout << "PATH\n";
+        for (int i = 0; i < path.size(); i++) {
+          cout << path[i].first << " " << path[i].second;
+          cout << "\n";
+        }
         return path;
       }
     }
@@ -48,7 +54,23 @@ cout << '\n';
 
   return {};
 }
+bool pointOnSegment(double xi, double yi, double xj, double yj, double px,
+                    double py) {
+  const double EPS = 1e-9;
 
+  // cross product == 0 → collinear
+  double cross = (px - xi) * (yj - yi) - (py - yi) * (xj - xi);
+  if (fabs(cross) > EPS)
+    return false;
+
+  // check bounding box
+  if (px < min(xi, xj) - EPS || px > max(xi, xj) + EPS)
+    return false;
+  if (py < min(yi, yj) - EPS || py > max(yi, yj) + EPS)
+    return false;
+
+  return true;
+}
 unordered_map<int, pair<pair<int, int>, pair<int, int>>>
 getTerminals(const Board &board) {
 
@@ -100,16 +122,15 @@ map<int, vector<int>> getDistanceColor(
     distances_colors[dist].push_back(color);
   }
 
-  /*
-// Debug print (optional)
-for (const auto &[dist, colors] : distances_colors) {
-cout << "Distance " << dist << ": ";
-for (int c : colors) {
-cout << c << " ";
-}
-cout << '\n';
-}
-*/
+  // Debug print (optional)
+  for (const auto &[dist, colors] : distances_colors) {
+    cout << "FROM DISTANCES: Distance " << dist << ": ";
+    for (int c : colors) {
+      cout << c << " ";
+    }
+    cout << '\n';
+  }
+
   return distances_colors;
 }
 
@@ -208,14 +229,13 @@ vector<vector<int>> getRegion(pair<int, int> start_index,
       }
     }
   }
-  /*
-for (int i = 0; i < n; i++) {
-for (int j = 0; j < m; j++) {
-cout << region[i][j] << " ";
-}
-cout << "\n";
-}
-*/
+
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < m; j++) {
+      cout << region[i][j] << " ";
+    }
+    cout << "\n";
+  }
 
   return region;
 }
@@ -224,7 +244,11 @@ bool pointInPolygon(const vector<pair<double, double>> &poly,
                     pair<double, double> p) {
   bool inside = false;
   int n = poly.size();
-
+  for (int i = 0, j = n - 1; i < n; j = i++) {
+    if (pointOnSegment(poly[i].first, poly[i].second, poly[j].first,
+                       poly[j].second, p.first, p.second))
+      return true; // or classify as "boundary"
+  }
   for (int i = 0, j = n - 1; i < n; j = i++) {
     double xi = poly[i].first, yi = poly[i].second;
     double xj = poly[j].first, yj = poly[j].second;
@@ -243,7 +267,7 @@ bool pointInPolygon(const vector<pair<double, double>> &poly,
 
 bool dfsUtil(int i, int j, int ei, int ej, const Board &board,
              const vector<vector<int>> &region, vector<vector<bool>> &visited,
-             vector<pair<int, int>> &path) {
+             vector<pair<int, int>> &path, int start_i, int start_j) {
 
   // Out of bounds
   if (i < 0 || j < 0 || i >= board.board.size() || j >= board.board[0].size())
@@ -260,6 +284,9 @@ bool dfsUtil(int i, int j, int ei, int ej, const Board &board,
   // Blocked cell (adjust if needed)
   if (board.board[i][j].hasPipe)
     return false;
+  if (board.board[i][j].isTerminal && !(i == start_i && j == start_j) &&
+      !(i == ei && j == ej))
+    return false;
 
   visited[i][j] = true;
   path.push_back({i, j});
@@ -273,7 +300,8 @@ bool dfsUtil(int i, int j, int ei, int ej, const Board &board,
   static int dy[4] = {0, 0, 1, -1};
 
   for (int d = 0; d < 4; d++) {
-    if (dfsUtil(i + dx[d], j + dy[d], ei, ej, board, region, visited, path))
+    if (dfsUtil(i + dx[d], j + dy[d], ei, ej, board, region, visited, path,
+                start_i, start_j))
       return true;
   }
 
@@ -293,7 +321,7 @@ vector<pair<int, int>> dfsFindPath(pair<int, int> start, pair<int, int> end,
   vector<pair<int, int>> path;
 
   if (dfsUtil(start.first, start.second, end.first, end.second, board, region,
-              visited, path)) {
+              visited, path, start.first, start.second)) {
     return path;
   }
 
