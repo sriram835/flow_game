@@ -1,7 +1,10 @@
+#include "base_algorithm_class.h"
+#include "base_get_terminals.h"
 #include "board.h"
+#include "closest_pair_first.h"
 #include "globals.h"
+#include "radical_wrapping.h"
 #include "raylib.h"
-#include "game_algorithms.h"
 #include <algorithm>
 #include <queue>
 #include <utility>
@@ -44,7 +47,7 @@ int PADDING = 60;
 
 enum GameState { HUMAN_TURN, AI_TURN };
 
-GameState state = HUMAN_TURN;
+GameState state = AI_TURN;
 std::vector<std::pair<int, int>> dragPath;
 int start_row = -1, start_col = -1;
 
@@ -138,6 +141,7 @@ struct TerminalPair {
   double dist;
 };
 
+const int CONST_DELAY = 200;
 
 int countLines(const std::string &filePath) {
   std::ifstream file(filePath);
@@ -157,6 +161,12 @@ int countLines(const std::string &filePath) {
 }
 
 int main() {
+  int delay = 0;
+
+  base_get_terminals *get_terminals_obj = new closest_pair_first();
+
+  base_algorithm *algo_obj = new radical_wrapping(get_terminals_obj);
+
   auto files = getLevelFiles("levels");
   if (files.empty()) {
     std::cout << "No level files found in /levels" << std::endl;
@@ -385,11 +395,14 @@ int main() {
     else if (state == AI_TURN) {
 
       // Call your algorithm
-      auto ai_path = algorithm(board);
-      if (!ai_path.empty())
-        board.makeMove(ai_path);
-
-      state = HUMAN_TURN;
+      if (delay <= 0) {
+        auto ai_path = algo_obj->algorithm(board);
+        if (!ai_path.empty())
+          board.makeMove(ai_path);
+        delay = CONST_DELAY;
+      } else {
+        delay--;
+      }
     }
 
     // -----------------------------
