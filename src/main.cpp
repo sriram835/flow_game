@@ -1,12 +1,18 @@
 #include "board.h"
+#include "game_algorithms.h"
 #include "globals.h"
 #include "raylib.h"
-#include "game_algorithms.h"
 #include <algorithm>
+#include <pthread.h>
 #include <queue>
 #include <utility>
 #include <vector>
 
+struct ThreadArgs {
+  Board *board;
+};
+vector<int> colors;
+void *solveThread(void *arg);
 int dir_dx = 0, dir_dy = 0;
 bool directionLocked = false;
 bool pathLocked = false;
@@ -137,7 +143,6 @@ struct TerminalPair {
   pair<int, int> b;
   double dist;
 };
-
 
 int countLines(const std::string &filePath) {
   std::ifstream file(filePath);
@@ -277,6 +282,8 @@ int main() {
 
   SetTextureFilter(roboto_font.texture, TEXTURE_FILTER_TRILINEAR);
 
+  int thread_count = 0;
+
   while (!WindowShouldClose()) {
     Vector2 mouse_pos = GetMousePosition();
     bool undo_hover = CheckCollisionPointRec(mouse_pos, undo_button);
@@ -298,6 +305,18 @@ int main() {
     // -----------------------------
     // HUMAN TURN LOGIC
     // -----------------------------
+    //
+    //
+    //
+    //
+    if (thread_count < 1) {
+      pthread_t thread;
+      ThreadArgs args;
+      args.board = &board;
+
+      pthread_create(&thread, nullptr, solveThread, &args);
+      thread_count++;
+    }
     if (state == HUMAN_TURN) {
 
       int mx = GetMouseX();
@@ -431,4 +450,33 @@ int main() {
 
   CloseWindow();
   return 0;
+}
+
+void *solveThread(void *arg) {
+
+  ThreadArgs *args = (ThreadArgs *)arg;
+  Board &board = *(args->board);
+
+  for (int i = 0; i < GRID; i++) {
+    for (int j = 0; j < GRID; j++) {
+      if (board.board[i][j].isTerminal) {
+        colors.push_back(board.board[i][j].color);
+      }
+    }
+  }
+
+  unordered_set<int> seen;
+  vector<int> result;
+
+  for (int x : colors) {
+    if (seen.insert(x).second) { // inserted successfully
+      result.push_back(x);
+    }
+  }
+  colors = result;
+  vector<vector<bool>> visited = vector(GRID, vector(GRID, false));
+
+  solver(board, 0, visited);
+
+  return nullptr;
 }

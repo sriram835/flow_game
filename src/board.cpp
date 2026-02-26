@@ -25,11 +25,27 @@ bool Board::makeMove(const std::vector<std::pair<int, int>> &indexes) {
   int end_row = end.first;
   int end_col = end.second;
 
+  if (start_row < 0 || start_col < 0 || start_col >= GRID ||
+      start_col >= GRID || end_row < 0 || end_col < 0 || end_col >= GRID ||
+      end_col >= GRID) {
+    cout << "ERROR: OUT OF BOUNDS FROM BOARD\n";
+    cout << start_row << " " << start_col << " " << end_row << " " << end_col
+
+         << "\n";
+    exit(EXIT_FAILURE);
+  }
+
   int color = board[start_row][start_col].color; // same as end’s color
 
   for (int i = 0; i < n; ++i) {
     int row = indexes[i].first;
     int col = indexes[i].second;
+
+    if (row < 0 || col < 0 || col >= GRID || col >= GRID) {
+      cout << "ERROR: OUT OF BOUNDS FROM BOARD\n";
+      cout << row << " " << col << "\n";
+      exit(EXIT_FAILURE);
+    }
 
     Cell &c = board[row][col];
 
@@ -45,7 +61,7 @@ bool Board::makeMove(const std::vector<std::pair<int, int>> &indexes) {
   return true;
 }
 
-bool Board::isValidPath(const vector<pair<int,int>> &path) const {
+bool Board::isValidPath(const vector<pair<int, int>> &path) const {
   int n = path.size();
   if (n <= 1) {
     return false;
@@ -179,7 +195,6 @@ bool Board::removePath(const std::vector<std::pair<int, int>> &path) {
   }
   return true;
 }
-
 
 void Board::undoMove() {
   auto path = saved_paths.back();
