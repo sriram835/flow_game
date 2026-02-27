@@ -97,7 +97,6 @@ bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
 
     board.makeMove(paths[color]);
     cout << "Made one move\n";
-    sleep(1);
     if (solver(board, colorIndex + 1, visited))
       return true;
     board.undoMove();
