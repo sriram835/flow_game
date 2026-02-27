@@ -61,8 +61,6 @@ pair<pair<int, int>, pair<int, int>> findTerminals(const Board &board,
 bool feasibleCheck(const Board &board, const vector<vector<bool>> &visited) {
   for (int i = 0; i < GRID; i++) {
     for (int j = 0; j < GRID; j++) {
-      // We only check cells that are NOT visited (empty)
-      // OR are Terminals that haven't been reached yet.
       if (visited[i][j])
         continue;
 
@@ -80,16 +78,8 @@ bool feasibleCheck(const Board &board, const vector<vector<bool>> &visited) {
           }
         }
       }
-
-      if (board.board[i][j].isTerminal) {
-        // Rule: A terminal must have at least 1 free neighbor to connect to
-        if (freeNeighbors < 1)
-          return false;
-      } else {
-        // Rule: An empty cell must have at least 2 free neighbors
-        // (one to enter, one to exit)
-        if (freeNeighbors < 2)
-          return false;
+      if (freeNeighbors < 1) {
+        return false;
       }
     }
   }
@@ -141,8 +131,10 @@ bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
       board.makeMove(paths[color]);
     }
     //     cout << "Made one move\n";
-    if (solver(board, colorIndex + 1, visited, colors))
-      return true;
+    if (feasibleCheck(board, visited)) {
+      if (solver(board, colorIndex + 1, visited, colors))
+        return true;
+    }
 
     lock_guard<mutex> lock(boardMutex);
     board.undoMove();
@@ -160,10 +152,9 @@ bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
 
     visited[nx][ny] = true;
     paths[color].push_back({nx, ny});
-    if (feasibleCheck(board, visited)) {
-      if (dfsColor(board, nx, ny, tx, ty, color, colorIndex, visited, colors))
-        return true;
-    }
+    if (dfsColor(board, nx, ny, tx, ty, color, colorIndex, visited, colors))
+      return true;
+
     paths[color].pop_back();
     visited[nx][ny] = false;
   }
