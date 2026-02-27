@@ -4,16 +4,16 @@ bool Board::makeMove(const std::vector<std::pair<int, int>> &indexes) {
   // (body unchanged)
   for (auto path : saved_paths) {
     for (auto index : path) {
-      cout << index.first << " " << index.second << "\t";
+      //       cout << index.first << " " << index.second << "\t";
     }
-    cout << "\n";
+    //     cout << "\n";
   }
   if (!isValidPath(indexes)) {
-    cout << "invalid path\n";
+    //     cout << "invalid path\n";
     return false;
   }
 
-  cout << "valid path\n";
+  //   cout << "valid path\n";
 
   saved_paths.push_back(indexes);
   int n = indexes.size();
@@ -28,10 +28,9 @@ bool Board::makeMove(const std::vector<std::pair<int, int>> &indexes) {
   if (start_row < 0 || start_col < 0 || start_col >= GRID ||
       start_col >= GRID || end_row < 0 || end_col < 0 || end_col >= GRID ||
       end_col >= GRID) {
-    cout << "ERROR: OUT OF BOUNDS FROM BOARD\n";
-    cout << start_row << " " << start_col << " " << end_row << " " << end_col
-
-         << "\n";
+    //     cout << "ERROR: OUT OF BOUNDS FROM BOARD\n";
+    //     cout << start_row << " " << start_col << " " << end_row << " " <<
+    //     end_col << "\n";
     exit(EXIT_FAILURE);
   }
 
@@ -42,8 +41,8 @@ bool Board::makeMove(const std::vector<std::pair<int, int>> &indexes) {
     int col = indexes[i].second;
 
     if (row < 0 || col < 0 || col >= GRID || col >= GRID) {
-      cout << "ERROR: OUT OF BOUNDS FROM BOARD\n";
-      cout << row << " " << col << "\n";
+      //       cout << "ERROR: OUT OF BOUNDS FROM BOARD\n";
+      //       cout << row << " " << col << "\n";
       exit(EXIT_FAILURE);
     }
 
@@ -86,11 +85,11 @@ bool Board::isValidPath(const vector<pair<int, int>> &path) const {
 
   // Endpoints must be terminals of same color
   if (!start_cell.isTerminal || !end_cell.isTerminal) {
-    cout << "Not terminal\n";
+    //     cout << "Not terminal\n";
     return false;
   }
   if (start_cell.color != end_cell.color) {
-    cout << "not same color\n";
+    //     cout << "not same color\n";
     return false;
   }
 
@@ -114,14 +113,14 @@ bool Board::isValidPath(const vector<pair<int, int>> &path) const {
     Cell c = board[x][y];
 
     if (c.hasPipe) {
-      cout << "Already filled\n";
+      //       cout << "Already filled\n";
       return false;
     }
 
     // Start/end already checked; intermediates must be empty
     if (i != 0 && i != n - 1) {
       if (c.color != 0 || c.isTerminal) {
-        cout << "not empty in middle\n";
+        //         cout << "not empty in middle\n";
         return false;
       }
     }
@@ -135,7 +134,7 @@ bool Board::isValidPath(const vector<pair<int, int>> &path) const {
 
       // Must be exactly one step
       if (!((dx == 1 && dy == 0) || (dx == 0 && dy == 1))) {
-        cout << "Not adjacent\n";
+        //         cout << "Not adjacent\n";
         return false;
       }
     }
@@ -147,7 +146,8 @@ bool Board::isValidPath(const vector<pair<int, int>> &path) const {
 bool Board::loadFromFile(const std::string &filename) {
   std::ifstream file(filename);
   if (!file.is_open()) {
-    std::cout << "Error: Cannot open level file: " << filename << std::endl;
+    //     std::cout << "Error: Cannot open level file: " << filename <<
+    //     std::endl;
     return false;
   }
 

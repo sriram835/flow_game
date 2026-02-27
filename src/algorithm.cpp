@@ -61,7 +61,7 @@ pair<pair<int, int>, pair<int, int>> findTerminals(const Board &board,
 
 bool solver(Board &board, int index, vector<vector<bool>> &visited,
             vector<int> &colors) {
-  cout << "Solver started: " << colors[index] << "\n";
+  //   cout << "Solver started: " << colors[index] << "\n";
   if (index == colors.size())
     return isCompletedVisited(board, visited);
 
@@ -70,9 +70,9 @@ bool solver(Board &board, int index, vector<vector<bool>> &visited,
   auto terminals = findTerminals(board, color);
   auto start = terminals.first;
   auto end = terminals.second;
-  cout << "Find terminals ended\n";
+  //   cout << "Find terminals ended\n";
   if (start.first == -1 || end.first == -1) {
-    cout << "Invalid terminals for color " << color << endl;
+    //     cout << "Invalid terminals for color " << color << endl;
     return false;
   }
   visited[start.first][start.second] = true;
@@ -82,7 +82,7 @@ bool solver(Board &board, int index, vector<vector<bool>> &visited,
                          end.second, color, index, visited, colors);
 
   // 🔥 BACKTRACK START CELL
-  cout << "Solver ended: " << color << "\n";
+  //   cout << "Solver ended: " << color << "\n";
   if (!result) {
     visited[start.first][start.second] = false;
     paths[color].pop_back();
@@ -93,13 +93,13 @@ bool solver(Board &board, int index, vector<vector<bool>> &visited,
 bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
               int colorIndex, vector<vector<bool>> &visited,
               vector<int> &colors) {
-  cout << "DFS called\n";
+  //   cout << "DFS called\n";
   if (x == tx && y == ty) {
     {
       lock_guard<mutex> lock(boardMutex);
       board.makeMove(paths[color]);
     }
-    cout << "Made one move\n";
+    //     cout << "Made one move\n";
     if (solver(board, colorIndex + 1, visited, colors))
       return true;
 

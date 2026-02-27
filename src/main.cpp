@@ -15,6 +15,7 @@ struct ThreadArgs {
   Board *board;
 };
 vector<int> colors;
+int manhattanDistance(const Board &board, int color);
 void solveThread(Board *board);
 int dir_dx = 0, dir_dy = 0;
 bool directionLocked = false;
@@ -31,8 +32,27 @@ std::unordered_map<int, Color> color_map = {
     {5, Color{255, 0, 255, 255}}, // Magenta / Pink
     {6, Color{0, 255, 255, 255}}, // Cyan / Aqua
     {7, Color{255, 255, 0, 255}}, // Yellow
-    {8, Color{112, 55, 67, 255}},   {9, Color{228, 123, 126, 255}},
-    {10, Color{230, 143, 174, 255}}};
+    {8, Color{112, 55, 67, 255}},
+    {9, Color{228, 123, 126, 255}},
+    {10, Color{230, 143, 174, 255}}
+
+    ,
+    {11, Color{160, 32, 240, 255}},  // Purple
+    {12, Color{0, 128, 128, 255}},   // Teal
+    {13, Color{0, 0, 128, 255}},     // Navy Blue
+    {14, Color{128, 0, 0, 255}},     // Maroon
+    {15, Color{128, 128, 0, 255}},   // Olive
+    {16, Color{50, 205, 50, 255}},   // Lime Green
+    {17, Color{255, 215, 0, 255}},   // Gold
+    {18, Color{135, 206, 235, 255}}, // Sky Blue
+    {19, Color{255, 105, 180, 255}}, // Hot Pink
+    {20, Color{210, 180, 140, 255}}, // Tan/Beige
+    {21, Color{230, 230, 250, 255}}, // Lavender
+    {22, Color{75, 0, 130, 255}},    // Indigo
+    {23, Color{64, 224, 208, 255}},  // Turquoise
+    {24, Color{250, 128, 114, 255}}, // Salmon
+    {25, Color{0, 100, 0, 255}}      // Dark Green
+};
 
 std::vector<std::string> getLevelFiles(const std::string &folderPath) {
   std::vector<std::string> files;
@@ -248,7 +268,7 @@ int main() {
   SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_MAXIMIZED);
 
   InitWindow(windowW, windowH, "Flow Game - Raylib");
-  SetTargetFPS(60);
+  SetTargetFPS(6);
 
   int Monitor = GetCurrentMonitor();
   int screen_Width = GetMonitorWidth(Monitor);
@@ -343,12 +363,44 @@ int main() {
 
     lock_guard<mutex> lock(boardMutex);
     drawBoard(board);
+
     EndDrawing();
   }
 
   CloseWindow();
   return 0;
 }
+
+pair<pair<int, int>, pair<int, int>> findTerminals_2(const Board &board,
+                                                     int color) {
+
+  std::pair<int, int> first = {-1, -1};
+  std::pair<int, int> second = {-1, -1};
+
+  for (int i = 0; i < GRID; i++) {
+    for (int j = 0; j < GRID; j++) {
+
+      if (board.board[i][j].isTerminal && board.board[i][j].color == color) {
+
+        if (first.first == -1)
+          first = {i, j};
+        else
+          second = {i, j};
+      }
+    }
+  }
+
+  return {first, second};
+}
+
+int manhattanDistance(const Board &board, int color) {
+  auto terminals = findTerminals_2(board, color);
+  pair<int, int> a = terminals.first;
+  pair<int, int> b = terminals.second;
+
+  return abs(a.first - b.first) + abs(a.second - b.second);
+}
+
 void solveThread(Board *board) {
   std::vector<int> colors; // 🔥 make it LOCAL (not global)
 
@@ -369,8 +421,10 @@ void solveThread(Board *board) {
       uniqueColors.push_back(c);
     }
   }
-
+  sort(uniqueColors.begin(), uniqueColors.end(), [&](int c1, int c2) {
+    return manhattanDistance(*board, c1) < manhattanDistance(*board, c2);
+  });
   std::vector<std::vector<bool>> visited(GRID, std::vector<bool>(GRID, false));
 
-  solver(*board, 0, visited, colors);
+  solver(*board, 0, visited, uniqueColors);
 }
