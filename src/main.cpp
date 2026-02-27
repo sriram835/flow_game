@@ -268,7 +268,7 @@ int main() {
   SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_MAXIMIZED);
 
   InitWindow(windowW, windowH, "Flow Game - Raylib");
-  SetTargetFPS(6);
+  SetTargetFPS(60);
 
   int Monitor = GetCurrentMonitor();
   int screen_Width = GetMonitorWidth(Monitor);

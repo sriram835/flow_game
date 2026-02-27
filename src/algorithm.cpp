@@ -58,7 +58,43 @@ pair<pair<int, int>, pair<int, int>> findTerminals(const Board &board,
 
   return {first, second};
 }
+bool feasibleCheck(const Board &board, const vector<vector<bool>> &visited) {
+  for (int i = 0; i < GRID; i++) {
+    for (int j = 0; j < GRID; j++) {
+      // We only check cells that are NOT visited (empty)
+      // OR are Terminals that haven't been reached yet.
+      if (visited[i][j])
+        continue;
 
+      int freeNeighbors = 0;
+
+      // Check all 4 directions
+      for (int d = 0; d < 4; d++) {
+        int ni = i + dx[d];
+        int nj = j + dy[d];
+
+        if (ni >= 0 && ni < GRID && nj >= 0 && nj < GRID) {
+          // A neighbor is "free" if it hasn't been visited yet
+          if (!visited[ni][nj]) {
+            freeNeighbors++;
+          }
+        }
+      }
+
+      if (board.board[i][j].isTerminal) {
+        // Rule: A terminal must have at least 1 free neighbor to connect to
+        if (freeNeighbors < 1)
+          return false;
+      } else {
+        // Rule: An empty cell must have at least 2 free neighbors
+        // (one to enter, one to exit)
+        if (freeNeighbors < 2)
+          return false;
+      }
+    }
+  }
+  return true;
+}
 bool solver(Board &board, int index, vector<vector<bool>> &visited,
             vector<int> &colors) {
   //   cout << "Solver started: " << colors[index] << "\n";
@@ -75,13 +111,13 @@ bool solver(Board &board, int index, vector<vector<bool>> &visited,
     //     cout << "Invalid terminals for color " << color << endl;
     return false;
   }
+
   visited[start.first][start.second] = true;
   paths[color].push_back({start.first, start.second});
 
   bool result = dfsColor(board, start.first, start.second, end.first,
                          end.second, color, index, visited, colors);
 
-  // 🔥 BACKTRACK START CELL
   //   cout << "Solver ended: " << color << "\n";
   if (!result) {
     visited[start.first][start.second] = false;
@@ -94,7 +130,12 @@ bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
               int colorIndex, vector<vector<bool>> &visited,
               vector<int> &colors) {
   //   cout << "DFS called\n";
+  //
+  //
+  //
+
   if (x == tx && y == ty) {
+
     {
       lock_guard<mutex> lock(boardMutex);
       board.makeMove(paths[color]);
@@ -119,10 +160,10 @@ bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
 
     visited[nx][ny] = true;
     paths[color].push_back({nx, ny});
-
-    if (dfsColor(board, nx, ny, tx, ty, color, colorIndex, visited, colors))
-      return true;
-
+    if (feasibleCheck(board, visited)) {
+      if (dfsColor(board, nx, ny, tx, ty, color, colorIndex, visited, colors))
+        return true;
+    }
     paths[color].pop_back();
     visited[nx][ny] = false;
   }
