@@ -3,16 +3,19 @@
 #include "globals.h"
 #include "raylib.h"
 #include <algorithm>
-#include <pthread.h>
 #include <queue>
+#include <thread>
 #include <utility>
 #include <vector>
 
+#include <pthread.h>
+
+mutex boardMutex;
 struct ThreadArgs {
   Board *board;
 };
 vector<int> colors;
-void *solveThread(void *arg);
+void solveThread(Board *board);
 int dir_dx = 0, dir_dy = 0;
 bool directionLocked = false;
 bool pathLocked = false;
@@ -294,126 +297,22 @@ int main() {
 
     if (undo_clicked == true && !board.saved_paths.empty()) {
       cout << "Undo clicked\n";
+      lock_guard<mutex> lock(boardMutex);
       board.undoMove();
     }
 
     if (reset_clicked) {
       cout << "Reset clicked\n";
+      lock_guard<mutex> lock(boardMutex);
       board.resetBoard();
     }
 
-    // -----------------------------
-    // HUMAN TURN LOGIC
-    // -----------------------------
-    //
-    //
-    //
-    //
     if (thread_count < 1) {
-      pthread_t thread;
-      ThreadArgs args;
-      args.board = &board;
-
-      pthread_create(&thread, nullptr, solveThread, &args);
+      thread solverThread(solveThread, &board);
+      solverThread.detach();
       thread_count++;
     }
-    if (state == HUMAN_TURN) {
 
-      int mx = GetMouseX();
-      int my = GetMouseY();
-      int row = mouseToGridY(my);
-      int col = mouseToGridX(mx);
-
-      // Start drag
-      if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        if (row != -1 && col != -1) {
-          Cell &c = board.board[row][col];
-          if (c.isTerminal) {
-            isDragging = true;
-            // directionLocked = false;
-            dragPath.clear();
-            dragPath.push_back({row, col});
-            start_row = row;
-            start_col = col;
-          }
-        }
-      }
-
-      // Continue drag
-      if (isDragging && IsMouseButtonDown(MOUSE_LEFT_BUTTON) && !pathLocked) {
-
-        if (row == -1 || col == -1)
-          goto END_DRAG;
-
-        auto last = dragPath.back();
-        int dx = row - last.first;
-        int dy = col - last.second;
-
-        // Must be exactly 1 step
-        if (!((abs(dx) == 1 && dy == 0) || (abs(dy) == 1 && dx == 0)))
-          goto END_DRAG;
-
-        // No self overlap
-        for (auto &p : dragPath)
-          if (p.first == row && p.second == col)
-            goto END_DRAG;
-
-        Cell &next = board.board[row][col];
-        Cell &startCell = board.board[start_row][start_col];
-
-        // No overlapping other pipes
-        if (next.hasPipe)
-          goto END_DRAG;
-
-        // Terminal rules
-        if (next.isTerminal) {
-          if (next.color != startCell.color)
-            goto END_DRAG;
-
-          // Correct destination → lock
-          dragPath.push_back({row, col});
-          pathLocked = true;
-          goto END_DRAG;
-        }
-
-        // Normal move
-        dragPath.push_back({row, col});
-      }
-
-    END_DRAG:
-
-      // End drag
-      if (isDragging && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-        isDragging = false;
-
-        // Commit ONLY if destination reached
-        if (pathLocked) {
-          board.makeMove(dragPath);
-          state = AI_TURN;
-        }
-
-        dragPath.clear();
-        pathLocked = false;
-        directionLocked = false;
-      }
-    }
-
-    // -----------------------------
-    // AI TURN LOGIC
-    // -----------------------------
-    else if (state == AI_TURN) {
-
-      // Call your algorithm
-      auto ai_path = algorithm(board);
-      if (!ai_path.empty())
-        board.makeMove(ai_path);
-
-      state = HUMAN_TURN;
-    }
-
-    // -----------------------------
-    // DRAWING
-    // -----------------------------
     BeginDrawing();
     ClearBackground(RAYWHITE);
 
@@ -442,41 +341,36 @@ int main() {
                (Vector2){reset_button.x + 60, reset_button.y + 15}, 32, 2,
                BLACK);
 
+    lock_guard<mutex> lock(boardMutex);
     drawBoard(board);
-    drawDragPath(board);
-
     EndDrawing();
   }
 
   CloseWindow();
   return 0;
 }
-
-void *solveThread(void *arg) {
-
-  ThreadArgs *args = (ThreadArgs *)arg;
-  Board &board = *(args->board);
+void solveThread(Board *board) {
+  std::vector<int> colors; // 🔥 make it LOCAL (not global)
 
   for (int i = 0; i < GRID; i++) {
     for (int j = 0; j < GRID; j++) {
-      if (board.board[i][j].isTerminal) {
-        colors.push_back(board.board[i][j].color);
+      if (board->board[i][j].isTerminal) {
+        colors.push_back(board->board[i][j].color);
       }
     }
   }
 
-  unordered_set<int> seen;
-  vector<int> result;
+  // remove duplicates
+  std::unordered_set<int> seen;
+  std::vector<int> uniqueColors;
 
-  for (int x : colors) {
-    if (seen.insert(x).second) { // inserted successfully
-      result.push_back(x);
+  for (int c : colors) {
+    if (seen.insert(c).second) {
+      uniqueColors.push_back(c);
     }
   }
-  colors = result;
-  vector<vector<bool>> visited = vector(GRID, vector(GRID, false));
 
-  solver(board, 0, visited);
+  std::vector<std::vector<bool>> visited(GRID, std::vector<bool>(GRID, false));
 
-  return nullptr;
+  solver(*board, 0, visited, colors);
 }

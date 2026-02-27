@@ -5,8 +5,8 @@
 #include "globals.h"
 
 bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
-              int colorIndex, vector<vector<bool>> &visited);
-bool solver(Board &board, int index, vector<vector<bool>> &visited);
+              int colorIndex, vector<vector<bool>> &visited, vector<int> &colors);
+bool solver(Board &board, int index, vector<vector<bool>> &visited, vector<int> &colors);
 vector<pair<int, int>> algorithm(const Board board);
 unordered_map<int, pair<pair<int, int>, pair<int, int>>>
 getTerminals(const Board &board);

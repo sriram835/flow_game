@@ -3,12 +3,11 @@
 
 using namespace std;
 bool isCompleted(const Board &board);
-bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
-              int colorIndex, bool **visited);
 vector<pair<int, int>> algorithm(const Board board) { return {}; }
 unordered_map<int, vector<pair<int, int>>> paths;
 
-bool canVisit(const Board &board, int x, int y, int color, vector<vector<bool>> &visited) {
+bool canVisit(const Board &board, int x, int y, int color,
+              vector<vector<bool>> &visited) {
 
   if (x < 0 || y < 0 || x >= GRID || y >= GRID)
     return false;
@@ -60,8 +59,9 @@ pair<pair<int, int>, pair<int, int>> findTerminals(const Board &board,
   return {first, second};
 }
 
-bool solver(Board &board, int index, vector<vector<bool>> &visited) {
-  cout << "Solver started\n";
+bool solver(Board &board, int index, vector<vector<bool>> &visited,
+            vector<int> &colors) {
+  cout << "Solver started: " << colors[index] << "\n";
   if (index == colors.size())
     return isCompletedVisited(board, visited);
 
@@ -79,10 +79,10 @@ bool solver(Board &board, int index, vector<vector<bool>> &visited) {
   paths[color].push_back({start.first, start.second});
 
   bool result = dfsColor(board, start.first, start.second, end.first,
-                         end.second, color, index, visited);
+                         end.second, color, index, visited, colors);
 
   // 🔥 BACKTRACK START CELL
-  cout << "Solver ended\n";
+  cout << "Solver ended: " << color << "\n";
   if (!result) {
     visited[start.first][start.second] = false;
     paths[color].pop_back();
@@ -91,14 +91,19 @@ bool solver(Board &board, int index, vector<vector<bool>> &visited) {
   return result;
 }
 bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
-              int colorIndex, vector<vector<bool>> &visited) {
+              int colorIndex, vector<vector<bool>> &visited,
+              vector<int> &colors) {
   cout << "DFS called\n";
   if (x == tx && y == ty) {
-
-    board.makeMove(paths[color]);
+    {
+      lock_guard<mutex> lock(boardMutex);
+      board.makeMove(paths[color]);
+    }
     cout << "Made one move\n";
-    if (solver(board, colorIndex + 1, visited))
+    if (solver(board, colorIndex + 1, visited, colors))
       return true;
+
+    lock_guard<mutex> lock(boardMutex);
     board.undoMove();
 
     return false;
@@ -115,7 +120,7 @@ bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
     visited[nx][ny] = true;
     paths[color].push_back({nx, ny});
 
-    if (dfsColor(board, nx, ny, tx, ty, color, colorIndex, visited))
+    if (dfsColor(board, nx, ny, tx, ty, color, colorIndex, visited, colors))
       return true;
 
     paths[color].pop_back();

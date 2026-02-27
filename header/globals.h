@@ -15,13 +15,13 @@
 #include <utility>
 #include <vector>
 #include <unordered_set>
+#include <mutex>
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
 using namespace std;
-
+extern mutex boardMutex;
 extern int GRID;
 extern unordered_map<int, Color> color_map;
 const double REGION_THRESHOLD = 0.5;
-extern vector<int> colors;
 #endif
