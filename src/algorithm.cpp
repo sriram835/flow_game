@@ -150,10 +150,66 @@ bool solver(Board &board, int index, vector<vector<bool>> &visited,
 
   return result;
 }
+
+bool single_color_dfs_check(
+    Board &board, const vector<vector<bool>> &visited, int color,
+    unordered_map<int, pair<pair<int, int>, pair<int, int>>> color_to_terminal,
+    vector<vector<bool>> &seen, int i, int j, int end_i, int end_j) {
+
+  if (i == end_i && j == end_j) {
+    return true;
+  }
+
+  if (seen[i][j] == true || visited[i][j] == true ||
+      board.board[i][j].hasPipe == true) {
+    return false;
+  }
+  if (board.board[i][j].hasPipe)
+    return false;
+
+  if (board.board[i][j].isTerminal && board.board[i][j].color != color)
+    return false;
+  seen[i][j] = true;
+
+  for (int d = 0; d < 4; d++) {
+    int nx = i + dx[d];
+    int ny = j + dy[d];
+
+    if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID && !visited[nx][ny] &&
+        !seen[nx][ny]) {
+      if (single_color_dfs_check(board, visited, color, color_to_terminal, seen,
+                                 nx, ny, end_i, end_j)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+bool dfs_feasibility_check(Board &board, vector<vector<bool>> &visited,
+                           vector<int> &colors, int colorIndex) {
+  static unordered_map<int, pair<pair<int, int>, pair<int, int>>>
+      color_to_terminal = getTerminals(board);
+  for (int i = colorIndex + 1; i < colors.size(); i++) {
+
+    vector<vector<bool>> seen =
+        vector(visited.size(), vector(visited.size(), false));
+
+    pair<pair<int, int>, pair<int, int>> cell = color_to_terminal[colors[i]];
+    if (!single_color_dfs_check(board, visited, colors[i], color_to_terminal,
+                                seen, cell.first.first, cell.first.second,
+                                cell.second.first, cell.second.second)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
               int colorIndex, vector<vector<bool>> &visited,
               vector<int> &colors) {
-  //   cout << "DFS called\n";
+  //cout << "DFS called\n";
   //
   //
   //
@@ -189,7 +245,7 @@ bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
     visited[nx][ny] = true;
     paths[color].push_back({nx, ny});
 
-    if (!hasDeadRegion(board, visited, color)) {
+    if (dfs_feasibility_check(board, visited, colors, colorIndex)) {
       if (dfsColor(board, nx, ny, tx, ty, color, colorIndex, visited, colors))
         return true;
     }
@@ -219,4 +275,33 @@ bool isCompleted(const Board &board) {
   }
 
   return true;
+}
+
+unordered_map<int, pair<pair<int, int>, pair<int, int>>>
+getTerminals(const Board &board) {
+
+  unordered_map<int, pair<pair<int, int>, pair<int, int>>> terminals;
+
+  for (int i = 0; i < board.board.size(); i++) {
+    for (int j = 0; j < board.board[i].size(); j++) {
+
+      const auto &cell = board.board[i][j];
+
+      if (cell.isTerminal && !cell.hasPipe) {
+
+        auto it = terminals.find(cell.color);
+
+        if (it == terminals.end()) {
+          // first terminal of this color
+          terminals.emplace(cell.color,
+                            make_pair(make_pair(i, j), make_pair(-1, -1)));
+        } else {
+          // second terminal of this color
+          it->second.second = make_pair(i, j);
+        }
+      }
+    }
+  }
+
+  return terminals;
 }
