@@ -58,50 +58,6 @@ pair<pair<int, int>, pair<int, int>> findTerminals(const Board &board,
 
   return {first, second};
 }
-bool feasibleCheck(const Board &board, const vector<vector<bool>> &visited) {
-  for (int i = 0; i < GRID; i++) {
-    for (int j = 0; j < GRID; j++) {
-      if (visited[i][j])
-        continue;
-
-      int freeNeighbors = 0;
-      int lastNi = -1;
-      int lastNj = -1;
-
-      // Check all 4 directions
-      for (int d = 0; d < 4; d++) {
-        int ni = i + dx[d];
-        int nj = j + dy[d];
-
-        if (ni >= 0 && ni < GRID && nj >= 0 && nj < GRID) {
-          // A neighbor is "free" if it hasn't been visited yet
-          if (!visited[ni][nj]) {
-            freeNeighbors++;
-            lastNi = ni;
-            lastNj = nj;
-          }
-        }
-      }
-      if (freeNeighbors < 1) {
-        return false;
-      }
-
-      if (freeNeighbors == 1) {
-        if (board.board[i][j].isTerminal &&
-            board.board[lastNi][lastNj].isTerminal &&
-            board.board[i][j].color != board.board[lastNi][lastNj].color) {
-          return false;
-        }
-        if (board.board[i][j].isTerminal == false) {
-          if (board.board[lastNi][lastNj].isTerminal) {
-            return false;
-          }
-        }
-      }
-    }
-  }
-  return true;
-}
 
 bool hasDeadRegion(const Board &board, const vector<vector<bool>> &visited,
                    int currentColor) {
@@ -118,6 +74,7 @@ bool hasDeadRegion(const Board &board, const vector<vector<bool>> &visited,
       queue<pair<int, int>> q;
       q.push({i, j});
       seen[i][j] = true;
+      int isFirst = true;
 
       unordered_map<int, int> terminalCount;
       int regionSize = 0;
@@ -164,9 +121,10 @@ bool hasDeadRegion(const Board &board, const vector<vector<bool>> &visited,
 bool solver(Board &board, int index, vector<vector<bool>> &visited,
             vector<int> &colors) {
   //   cout << "Solver started: " << colors[index] << "\n";
-  if (index == colors.size())
-    return isCompletedVisited(board, visited);
+  if (index == colors.size()) {
 
+    return isCompletedVisited(board, visited);
+  }
   int color = colors[index];
 
   auto terminals = findTerminals(board, color);
@@ -199,6 +157,7 @@ bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
   //
   //
   //
+  static int undoCount = 0;
 
   if (x == tx && y == ty) {
 
@@ -207,13 +166,14 @@ bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
       board.makeMove(paths[color]);
     }
     //     cout << "Made one move\n";
-    if (feasibleCheck(board, visited)) {
-      if (solver(board, colorIndex + 1, visited, colors))
-        return true;
+    if (solver(board, colorIndex + 1, visited, colors)) {
+      cout << undoCount << "\n";
+      return true;
     }
 
     lock_guard<mutex> lock(boardMutex);
     board.undoMove();
+    undoCount++;
 
     return false;
   }
