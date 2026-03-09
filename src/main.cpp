@@ -32,9 +32,15 @@ std::vector<std::string> getLevelFiles(const std::string &folderPath) {
   return files;
 }
 
+int dir_dx = 0, dir_dy = 0;
+bool directionLocked = false;
+bool pathLocked = false;
+bool isDragging = false;
 int GRID=-1;
 static int CELL_SIZE = 80;
 static int PADDING = 100;
+std::vector<std::pair<int, int>> dragPath;
+int start_row = -1, start_col = -1;
 int GRID_OFFSET_X = 0;
 int GRID_OFFSET_Y = 0;
 
@@ -106,6 +112,17 @@ void drawBoard(const Board &b) {
     Color color = color_map[b.board[row][col].color];
     drawPath(path, color);
   }
+}
+
+void drawDragPath(const Board &board) {
+  if (dragPath.empty()) {
+    return;
+  }
+  auto index = dragPath[0];
+  int row = index.first;
+  int col = index.second;
+  int color_int = board.board[row][col].color;
+  drawPath(dragPath, color_map[color_int]);
 }
 
 int countLines(const std::string &filePath) {
@@ -1012,11 +1029,96 @@ int main() {
       board.resetBoard();
     }
 
+    // -----------------------------
+    // HUMAN TURN LOGIC
+    // -----------------------------
+
+    int mx = GetMouseX();
+    int my = GetMouseY();
+    int row = mouseToGridY(my);
+    int col = mouseToGridX(mx);
+
+    // Start drag
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        if (row != -1 && col != -1) {
+            Cell &c = board.board[row][col];
+            if (c.isTerminal && !c.hasPipe) {
+                isDragging = true;
+                // directionLocked = false;
+                dragPath.clear();
+                dragPath.push_back({row, col});
+                start_row = row;
+                start_col = col;
+            }
+        }
+    }
+
+    // Continue drag
+    if (isDragging && IsMouseButtonDown(MOUSE_LEFT_BUTTON) && !pathLocked) {
+
+        if (row == -1 || col == -1)
+            goto END_DRAG;
+
+        auto last = dragPath.back();
+        int dx = row - last.first;
+        int dy = col - last.second;
+
+        // Must be exactly 1 step
+        if (!((abs(dx) == 1 && dy == 0) || (abs(dy) == 1 && dx == 0)))
+            goto END_DRAG;
+
+        // No self overlap
+        for (auto &p : dragPath)
+            if (p.first == row && p.second == col)
+                goto END_DRAG;
+
+        Cell &next = board.board[row][col];
+        Cell &startCell = board.board[start_row][start_col];
+
+        // No overlapping other pipes
+        if (next.hasPipe)
+            goto END_DRAG;
+
+        // Terminal rules
+        if (next.isTerminal) {
+            if (next.color != startCell.color)
+                goto END_DRAG;
+
+            // Correct destination → lock
+            dragPath.push_back({row, col});
+            pathLocked = true;
+            goto END_DRAG;
+        }
+
+        // Normal move
+        dragPath.push_back({row, col});
+    }
+
+    END_DRAG:
+
+    // End drag
+    if (isDragging && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+        isDragging = false;
+
+        // Commit ONLY if destination reached
+        if (pathLocked) {
+            board.makeMove(dragPath);
+        }
+
+        dragPath.clear();
+        pathLocked = false;
+        directionLocked = false;
+    }
+
+    // -----------------------------
+    // AI TURN LOGIC
+    // -----------------------------
+
     if (next_clicked) {
-      cout << "BFS + sorting solver used\n";
-      auto ai_path = algorithm(board);
-      if (!ai_path.empty())
-          board.makeMove(ai_path);
+    cout << "BFS + sorting solver used\n";
+    auto ai_path = algorithm(board);
+    if (!ai_path.empty())
+        board.makeMove(ai_path);
     }
 
     if (next2_clicked) {
@@ -1116,6 +1218,7 @@ int main() {
             32, 2, BLACK);
 
     drawBoard(board);
+    drawDragPath(board);
 
     EndDrawing();
   }
