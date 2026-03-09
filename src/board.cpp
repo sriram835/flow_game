@@ -97,7 +97,7 @@ bool Board::isValidPath(vector<pair<int, int>> indexes) {
 
     Cell c = board[x][y];
 
-    if (c.hasPipe) {
+    if (c.hasPipe && i != 0 && i != n - 1) {
       cout << "Already filled\n";
       return false;
     }
@@ -133,6 +133,19 @@ bool Board::isValidPath(vector<pair<int, int>> indexes) {
   }
 
   return true;
+}
+
+void Board::applyPath(vector<pair<int,int>> indexes) {
+    saved_paths.push_back(indexes);
+    int color = board[indexes[0].first][indexes[0].second].color;
+    for (int i = 0; i < indexes.size(); i++) {
+        int row = indexes[i].first;
+        int col = indexes[i].second;
+        Cell &c = board[row][col];
+        c.hasPipe = true;
+        if (i != 0 && i != (int)indexes.size() - 1)
+            c.color = color;
+    }
 }
 
 bool Board::loadFromFile(const std::string &filename) {

@@ -126,7 +126,7 @@ int countLines(const std::string &filePath) {
 }
 
 /* ===============================================================
-                           OLD LOGIC
+                           LAB1 LOGIC
    =============================================================== */
 
 struct TerminalPair {
@@ -248,7 +248,7 @@ bool isAlreadySolved(const Board &board, pair<int,int> a, pair<int,int> b)
 }
 
 /* ===============================================================
-                           NEW LOGIC
+                           LAB2 LOGIC
    =============================================================== */
 
 vector<vector<pair<int,int>>> findEmptyRegions(const Board &board) {
@@ -295,9 +295,7 @@ vector<vector<pair<int,int>>> findEmptyRegions(const Board &board) {
     return regions;
 }
 
-vector<pair<int,int>> regionPath(const Board &board, 
-                                        pair<int,int> start, 
-                                        pair<int,int> goal) {
+vector<pair<int,int>> regionPath(const Board &board, pair<int,int> start, pair<int,int> goal) {
     cout << "\n=== regionPath called ===\n";
     
     //finding shortest path
@@ -416,12 +414,114 @@ vector<pair<int,int>> regionPath(const Board &board,
 }
 
 /* ===============================================================
+                        LAB3 LOGIC
+   =============================================================== */
+
+vector<pair<int,int>> bellmanFordPath(const Board &board, pair<int,int> start, pair<int,int> goal) {
+    int INF = INT_MAX / 2;
+    int V = GRID * GRID;
+
+    int dr[4] = {1,-1,0,0};
+    int dc[4] = {0,0,1,-1};
+
+    //collect valid edges
+    vector<pair<pair<int,int>, pair<int,int>>> edges;
+    for (int r = 0; r < GRID; r++) {
+        for (int c = 0; c < GRID; c++) {
+            const Cell &cell = board.board[r][c];
+
+            //exempt start and goal from hasPipe check
+            bool isEndpoint = (r == start.first && c == start.second) ||
+                              (r == goal.first  && c == goal.second);
+
+            if (cell.hasPipe && !isEndpoint) continue;
+            if (cell.isTerminal && !isEndpoint) continue;
+
+            for (int k = 0; k < 4; k++) {
+                int nr = r + dr[k];
+                int nc = c + dc[k];
+                if (nr < 0 || nr >= GRID || nc < 0 || nc >= GRID) continue;
+
+                const Cell &ncell = board.board[nr][nc];
+
+                bool isNeighborEndpoint = (nr == start.first && nc == start.second) ||
+                                          (nr == goal.first  && nc == goal.second);
+
+                if (ncell.hasPipe && !isNeighborEndpoint) continue;
+                if (ncell.isTerminal && !isNeighborEndpoint) continue;
+
+                edges.push_back({{r,c},{nr,nc}});
+            }
+        }
+    }
+
+    //dp table- dp[k] reads from dp[k-1]
+    vector<vector<vector<int>>> dp(V, vector<vector<int>>(GRID, vector<int>(GRID, INF)));
+    vector<vector<vector<pair<int,int>>>> parent(V, vector<vector<pair<int,int>>>(GRID, vector<pair<int,int>>(GRID, {-1,-1})));
+
+    dp[0][start.first][start.second] = 0;
+
+    for (int k = 1; k < V; k++) {
+        //dp[k] starts as copy of dp[k-1]
+        dp[k]     = dp[k-1];
+        parent[k] = parent[k-1];
+
+        bool updated = false;
+
+        //relax using only dp[k-1]
+        for (auto &[u, v] : edges) {
+            int ur = u.first, uc = u.second;
+            int vr = v.first, vc = v.second;
+
+            if (dp[k-1][ur][uc] == INF) continue;
+
+            int newDist = dp[k-1][ur][uc] + 1;
+            if (newDist < dp[k][vr][vc]) {
+                dp[k][vr][vc] = newDist;
+                parent[k][vr][vc] = {ur, uc};
+                updated = true;
+            }
+        }
+
+        //early exit if no updates — convergence reached
+        if (!updated) break;
+    }
+
+    //find first iteration where goal was reached
+    int reachedAt = -1;
+    for (int k = 1; k < V; k++) {
+        if (dp[k][goal.first][goal.second] != INF) {
+            reachedAt = k;
+            break;
+        }
+    }
+
+    if (reachedAt == -1) return {};
+
+    //reconstruct path by walking back through parent table layer by layer
+    vector<pair<int,int>> path;
+    pair<int,int> cur = goal;
+    int k = reachedAt;
+
+    while (!(cur == start)) {
+        path.push_back(cur);
+        pair<int,int> prev = parent[k][cur.first][cur.second];
+        if (prev.first == -1) return {};
+        k--;
+        cur = prev;
+    }
+    path.push_back(start);
+    reverse(path.begin(), path.end());
+    return path;
+}
+
+/* ===============================================================
                             ALGORITHMS
    =============================================================== */
 
 vector<pair<int,int>> algorithm(Board &board)
 {
-    // collecting terminal pairs by colour
+    //collecting terminal pairs by colour
     unordered_map<int, vector<pair<int,int>>> terminals;
 
     for (int r = 0; r < GRID; r++) {
@@ -432,7 +532,7 @@ vector<pair<int,int>> algorithm(Board &board)
         }
     }
 
-    // building a list of pairs
+    //building a list of pairs
     vector<TerminalPair> pairs;
 
     for (auto &kv : terminals) {
@@ -449,10 +549,10 @@ vector<pair<int,int>> algorithm(Board &board)
         pairs.push_back(tp);
     }
 
-    // sorting terminal pairs by euclidean distance
+    //sorting terminal pairs by euclidean distance
     shell_sort(pairs);
 
-    /// removing solved pairs
+    //removing solved pairs
     pairs.erase(
         remove_if(pairs.begin(), pairs.end(),
                   [&](const TerminalPair &tp)
@@ -461,7 +561,7 @@ vector<pair<int,int>> algorithm(Board &board)
                   }),
         pairs.end());
 
-    // solving pairs in order
+    //solving pairs in order
     for (const auto &tp : pairs)
     {
         vector<pair<int,int>> path = bfsPath(board, tp.a, tp.b);
@@ -469,10 +569,10 @@ vector<pair<int,int>> algorithm(Board &board)
         if (!path.empty()) {
             return path;
         }
-        // bfs failed-> next pair
+        //bfs failed-> next pair
     }
 
-    // unsolvable path
+    //unsolvable path
     return {};  
 }
 
@@ -570,100 +670,9 @@ vector<pair<int,int>> algorithm2(Board &board) {
     return {};
 }
 
-/* ===============================================================
-                        BELLMAN-FORD LOGIC
-   =============================================================== */
-
-vector<pair<int,int>> bellmanFordPath(const Board &board, pair<int,int> start, pair<int,int> goal) {
-    int INF = INT_MAX / 2;
-    int V = GRID * GRID;
-
-    int dr[4] = {1,-1,0,0};
-    int dc[4] = {0,0,1,-1};
-
-    // collect valid edges
-    vector<pair<pair<int,int>, pair<int,int>>> edges;
-    for (int r = 0; r < GRID; r++) {
-        for (int c = 0; c < GRID; c++) {
-            const Cell &cell = board.board[r][c];
-            if (cell.hasPipe) continue;
-            if (cell.isTerminal && !(r == goal.first && c == goal.second)
-                                && !(r == start.first && c == start.second)) continue;
-
-            for (int k = 0; k < 4; k++) {
-                int nr = r + dr[k];
-                int nc = c + dc[k];
-                if (nr < 0 || nr >= GRID || nc < 0 || nc >= GRID) continue;
-
-                const Cell &ncell = board.board[nr][nc];
-                if (ncell.hasPipe) continue;
-                if (ncell.isTerminal && !(nr == goal.first && nc == goal.second)) continue;
-
-                edges.push_back({{r,c},{nr,nc}});
-            }
-        }
-    }
-
-    // strict dp table: dp[k][r][c] = shortest path to (r,c) using at most k edges
-    vector<vector<vector<int>>> dp(V, vector<vector<int>>(GRID, vector<int>(GRID, INF)));
-    vector<vector<vector<pair<int,int>>>> parent(V, vector<vector<pair<int,int>>>(GRID, vector<pair<int,int>>(GRID, {-1,-1})));
-
-    dp[0][start.first][start.second] = 0;
-
-    for (int k = 1; k < V; k++) {
-        // carry forward from previous iteration
-        dp[k] = dp[k-1];
-        parent[k] = parent[k-1];
-
-        bool updated = false;
-
-        // relax using only dp[k-1] — strict subproblem isolation
-        for (auto &[u, v] : edges) {
-            int ur = u.first, uc = u.second;
-            int vr = v.first, vc = v.second;
-
-            if (dp[k-1][ur][uc] == INF) continue;
-
-            int newDist = dp[k-1][ur][uc] + 1;
-            if (newDist < dp[k][vr][vc]) {
-                dp[k][vr][vc] = newDist;
-                parent[k][vr][vc] = {ur, uc};
-                updated = true;
-            }
-        }
-
-        if (!updated) break;
-    }
-
-    // find the iteration where goal was first reached
-    int reachedAt = -1;
-    for (int k = 1; k < V; k++) {
-        if (dp[k][goal.first][goal.second] != INF) {
-            reachedAt = k;
-            break;
-        }
-    }
-
-    if (reachedAt == -1) return {};
-
-    // reconstruct path using parent table at reachedAt
-    vector<pair<int,int>> path;
-    pair<int,int> cur = goal;
-    int k = reachedAt;
-
-    while (!(cur == start)) {
-        path.push_back(cur);
-        pair<int,int> prev = parent[k][cur.first][cur.second];
-        if (prev.first == -1) return {};
-        k--;
-        cur = prev;
-    }
-    path.push_back(start);
-    reverse(path.begin(), path.end());
-    return path;
-}
-
 vector<pair<int,int>> algorithm3(Board &board) {
+
+    //collect terminal pairs
     unordered_map<int, vector<pair<int,int>>> terminals;
     for (int r = 0; r < GRID; r++)
         for (int c = 0; c < GRID; c++) {
@@ -684,8 +693,10 @@ vector<pair<int,int>> algorithm3(Board &board) {
         pairs.push_back(tp);
     }
 
+    //sort by euclidean distance
     shell_sort(pairs);
 
+    //skip already solved pairs
     pairs.erase(
         remove_if(pairs.begin(), pairs.end(),
             [&](const TerminalPair &tp) {
@@ -693,6 +704,7 @@ vector<pair<int,int>> algorithm3(Board &board) {
             }),
         pairs.end());
 
+    //solve pairs in sorted order and return first valid path    
     for (const auto &tp : pairs) {
         vector<pair<int,int>> path = bellmanFordPath(board, tp.a, tp.b);
         if (!path.empty())
@@ -700,6 +712,109 @@ vector<pair<int,int>> algorithm3(Board &board) {
     }
 
     return {};
+}
+
+vector<pair<int,int>> algorithm4(Board &board) {
+
+    //collect terminal pairs
+    unordered_map<int, vector<pair<int,int>>> terminals;
+    for (int r = 0; r < GRID; r++)
+        for (int c = 0; c < GRID; c++) {
+            const Cell &cell = board.board[r][c];
+            if (cell.isTerminal)
+                terminals[cell.color].push_back({r,c});
+        }
+
+    vector<TerminalPair> pairs;
+    for (auto &kv : terminals) {
+        auto &vec = kv.second;
+        if (vec.size() != 2) continue;
+        TerminalPair tp;
+        tp.color = kv.first;
+        tp.a = vec[0];
+        tp.b = vec[1];
+        tp.dist = distanceEuclid(tp.a, tp.b);
+        pairs.push_back(tp);
+    }
+
+    //skip already solved pairs
+    pairs.erase(
+        remove_if(pairs.begin(), pairs.end(),
+            [&](const TerminalPair &tp) {
+                return isAlreadySolved(board, tp.a, tp.b);
+            }),
+        pairs.end());
+
+    int n = pairs.size();
+    if (n == 0) return {};
+    if (n > 12) return algorithm3(board);  //size handling for larger boards
+
+    int total = 1 << n;                                         //mask states
+    vector<int> dp(total, INT_MAX);                             //dp[mask] = best total path length when pairs in mask are solved
+    vector<int> from(total, -1);                                //from[mask] = which mask we transitioned from to reach this mask
+    vector<int> pairUsed(total, -1);                            //pairUsed[mask] = which pair was solved in the transition to this mask
+    vector<vector<pair<int,int>>> pathUsed(total);              //pathUsed[mask] = the path taken in the transition to this mask
+    vector<Board> boardAt(total, board);                        //boardAt[mask] = board snapshot when pairs in mask are solved
+
+    dp[0] = 0;
+
+    //iterate masks in ascending order
+    for (int mask = 0; mask < total; mask++) {
+        if (dp[mask] == INT_MAX) continue;
+        cout << "processing mask=" << mask << "\n";
+
+        //try adding each unsolved pair to the current mask
+        for (int i = 0; i < n; i++) {
+            if (mask & (1 << i)) continue;   //pair i solved
+
+            //find path on the board snapshot for this mask state
+            vector<pair<int,int>> path = bellmanFordPath(boardAt[mask], pairs[i].a, pairs[i].b);
+            cout << "mask=" << mask << " pair=" << i << " pathsize=" << path.size() << "\n";
+            if (path.empty()) continue;
+
+            int newMask = mask | (1 << i);         //pair i solved
+            int score = dp[mask] + path.size();
+
+            //update if this ordering gives a better score
+            if (score < dp[newMask]) {
+                dp[newMask] = score;
+                from[newMask] = mask;
+                pairUsed[newMask] = i;
+                pathUsed[newMask] = path;
+
+                //update board snapshot for newMask
+                boardAt[newMask] = boardAt[mask];
+                boardAt[newMask].applyPath(path);
+            }
+        }
+    }
+
+    //find best reachable mask (preference for most pairs solved)
+    int bestMask = 0;
+    for (int mask = 1; mask < total; mask++) {
+        if (dp[mask] == INT_MAX) continue;
+        if (__builtin_popcount(mask) > __builtin_popcount(bestMask))
+            bestMask = mask;
+        else if (__builtin_popcount(mask) == __builtin_popcount(bestMask) && dp[mask] < dp[bestMask])
+            bestMask = mask;
+    }
+
+    if (bestMask == 0 || dp[bestMask] == INT_MAX) return {};
+
+    cout << "bestMask=" << bestMask << " dp=" << dp[bestMask] << "\n";
+    for (int mask = 0; mask < total; mask++)
+        if (dp[mask] != INT_MAX)
+            cout << "reachable mask=" << mask << " dp=" << dp[mask] << "\n";
+
+    //trace back to find first transition from mask=0
+    int cur = bestMask;
+    while (from[cur] != -1 && from[cur] != 0)
+        cur = from[cur];
+
+    if (cur == -1 || pathUsed[cur].empty()) return {};
+
+    //return the first path
+    return pathUsed[cur];
 }
 
 /* ===============================================================
@@ -754,14 +869,14 @@ int main() {
   // -------------------------------
   InitWindow(800, 600, "Flow Game - Raylib");
 
-  int MAX_UI_SPACE = 300;
+  int buttonAreaH = 360;  // enough for undo, reset, and 2 rows of solver buttons
   if (GRID <= 0) GRID = 1;
 
   int screenW = GetMonitorWidth(GetCurrentMonitor());
   int screenH = GetMonitorHeight(GetCurrentMonitor());
 
   int availableW = screenW - 2 * PADDING;
-  int availableH = screenH - 2 * PADDING - MAX_UI_SPACE;
+  int availableH = screenH - 2 * PADDING - buttonAreaH;
 
   availableW = std::max(availableW, GRID);
   availableH = std::max(availableH, GRID);
@@ -771,16 +886,22 @@ int main() {
 
   CELL_SIZE = std::min(cellW, cellH);
 
-  if (CELL_SIZE < 60) CELL_SIZE = 60;
+  if (CELL_SIZE < 40) CELL_SIZE = 40;
   if (CELL_SIZE > 80) CELL_SIZE = 80;
 
+  // shrink CELL_SIZE until everything fits on screen
+  while ((2 * PADDING + GRID * CELL_SIZE + buttonAreaH > screenH ||
+          2 * PADDING + GRID * CELL_SIZE > screenW) && CELL_SIZE > 40) {
+      CELL_SIZE--;
+  }
+
   int windowW = 2 * PADDING + GRID * CELL_SIZE;
-  int windowH = 2 * PADDING + GRID * CELL_SIZE + 300;
+  int windowH = 2 * PADDING + GRID * CELL_SIZE + buttonAreaH;
 
   if (windowW < 600) windowW = 600;
   if (windowH < 500) windowH = 500;
-  if (windowW > 1800) windowW = 1800;
-  if (windowH > 1000) windowH = 1000;
+  if (windowW > 1400) windowW = 1400;
+  if (windowH > 1000)  windowH = 1000;
 
   SetWindowSize(windowW, windowH);
   SetTargetFPS(60);
@@ -813,26 +934,46 @@ int main() {
   int gridPixelSize = GRID * CELL_SIZE;
 
   GRID_OFFSET_X = (GetScreenWidth()  - gridPixelSize) / 2;
-  GRID_OFFSET_Y = (GetScreenHeight() - gridPixelSize - 300) / 2;
+  GRID_OFFSET_Y = (GetScreenHeight() - gridPixelSize - buttonAreaH) / 2;
 
   if (GRID_OFFSET_Y < 40) GRID_OFFSET_Y = 40;
 
+  int buttonBaseY = GRID_OFFSET_Y + gridPixelSize;
+
   Rectangle undo_button = {
     (GetScreenWidth() - 200) / 2,
-    GRID_OFFSET_Y + gridPixelSize + 40,
-    200, 60
+    buttonBaseY + 20,
+    200, 50
   };
 
   Rectangle reset_button = {
     (GetScreenWidth() - 200) / 2,
-    GRID_OFFSET_Y + gridPixelSize + 120,
-    200, 60
+    buttonBaseY + 80,
+    200, 50
   };
 
   Rectangle next_button = {
-    (GetScreenWidth() - 200) / 2,
-    GRID_OFFSET_Y + gridPixelSize + 200,
-    200, 60
+    (GetScreenWidth() - 420) / 2,
+    buttonBaseY + 150,
+    200, 50
+  };
+
+  Rectangle next2_button = {
+    (GetScreenWidth() - 420) / 2 + 220,
+    buttonBaseY + 150,
+    200, 50
+  };
+
+  Rectangle next3_button = {
+    (GetScreenWidth() - 420) / 2,
+    buttonBaseY + 215,
+    200, 50
+  };
+
+  Rectangle next4_button = {
+    (GetScreenWidth() - 420) / 2 + 220,
+    buttonBaseY + 215,
+    200, 50
   };
 
   Font roboto_font =
@@ -852,6 +993,15 @@ int main() {
     bool next_hover = CheckCollisionPointRec(mouse_pos, next_button);
     bool next_clicked = next_hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
 
+    bool next2_hover = CheckCollisionPointRec(mouse_pos, next2_button);
+    bool next2_clicked = next2_hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+
+    bool next3_hover = CheckCollisionPointRec(mouse_pos, next3_button);
+    bool next3_clicked = next3_hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+
+    bool next4_hover = CheckCollisionPointRec(mouse_pos, next4_button);
+    bool next4_clicked = next4_hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+
     if (undo_clicked && !board.saved_paths.empty()) {
       cout << "Undo clicked\n";
       board.undoMove();
@@ -863,10 +1013,31 @@ int main() {
     }
 
     if (next_clicked) {
-      cout << "Next clicked\n";
-      auto ai_path = algorithm3(board);
+      cout << "BFS + sorting solver used\n";
+      auto ai_path = algorithm(board);
       if (!ai_path.empty())
           board.makeMove(ai_path);
+    }
+
+    if (next2_clicked) {
+        cout << "Region-finding Dijkstra solver used\n";
+        auto ai_path = algorithm2(board);
+        if (!ai_path.empty())
+            board.makeMove(ai_path);
+    }
+
+    if (next3_clicked) {
+    cout << "Bellman-Ford + sorting solver used\n";
+    auto ai_path = algorithm3(board);
+    if (!ai_path.empty())
+        board.makeMove(ai_path);
+    }
+
+    if (next4_clicked) {
+        cout << "Bellman-Ford + bitmasking solver used\n";
+        auto ai_path = algorithm4(board);
+        if (!ai_path.empty())
+            board.makeMove(ai_path);
     }
 
     // -----------------------------
@@ -902,8 +1073,47 @@ int main() {
     }
     DrawRectangleLines(next_button.x, next_button.y, next_button.width,
                        next_button.height, BLACK);
-    DrawTextEx(roboto_font, "Next",
-               (Vector2){next_button.x + 60, next_button.y + 15}, 32, 2, BLACK);
+    Vector2 text1Size = MeasureTextEx(roboto_font, "Solver 1", 32, 2);
+    DrawTextEx(roboto_font, "Solver 1",
+            (Vector2){next_button.x + (next_button.width - text1Size.x) / 2,
+                        next_button.y + (next_button.height - text1Size.y) / 2},
+            32, 2, BLACK);
+
+    if (next2_hover)
+        DrawRectangleRec(next2_button, LIGHTGRAY);
+    else
+        DrawRectangleRec(next2_button, GRAY);
+    DrawRectangleLines(next2_button.x, next2_button.y, next2_button.width,
+                    next2_button.height, BLACK);
+    Vector2 text2Size = MeasureTextEx(roboto_font, "Solver 2", 32, 2);
+    DrawTextEx(roboto_font, "Solver 2",
+            (Vector2){next2_button.x + (next2_button.width - text2Size.x) / 2,
+                        next2_button.y + (next2_button.height - text2Size.y) / 2},
+            32, 2, BLACK);
+    
+    if (next3_hover)
+        DrawRectangleRec(next3_button, LIGHTGRAY);
+    else
+        DrawRectangleRec(next3_button, GRAY);
+    DrawRectangleLines(next3_button.x, next3_button.y, next3_button.width,
+                    next3_button.height, BLACK);
+    Vector2 text3Size = MeasureTextEx(roboto_font, "Solver 3", 32, 2);
+    DrawTextEx(roboto_font, "Solver 3",
+            (Vector2){next3_button.x + (next3_button.width - text3Size.x) / 2,
+                        next3_button.y + (next3_button.height - text3Size.y) / 2},
+            32, 2, BLACK);
+
+    if (next4_hover)
+        DrawRectangleRec(next4_button, LIGHTGRAY);
+    else
+        DrawRectangleRec(next4_button, GRAY);
+    DrawRectangleLines(next4_button.x, next4_button.y, next4_button.width,
+                    next4_button.height, BLACK);
+    Vector2 text4Size = MeasureTextEx(roboto_font, "Solver 4", 32, 2);
+    DrawTextEx(roboto_font, "Solver 4",
+            (Vector2){next4_button.x + (next4_button.width - text4Size.x) / 2,
+                        next4_button.y + (next4_button.height - text4Size.y) / 2},
+            32, 2, BLACK);
 
     drawBoard(board);
 
