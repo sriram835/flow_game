@@ -16,7 +16,7 @@ struct ThreadArgs {
 };
 vector<int> colors;
 int manhattanDistance(const Board &board, int color);
-void solveThread(Board *board);
+void solveThread(Board board);
 int dir_dx = 0, dir_dy = 0;
 bool directionLocked = false;
 bool pathLocked = false;
@@ -184,193 +184,6 @@ int countLines(const std::string &filePath) {
   return count;
 }
 
-int main() {
-  auto files = getLevelFiles("levels");
-  if (files.empty()) {
-    std::cout << "No level files found in /levels" << std::endl;
-    return 1;
-  }
-
-  std::cout << "Select a level:\n";
-  for (int i = 0; i < files.size(); i++) {
-    std::cout << i << ": " << files[i] << "\n";
-  }
-
-  int choice;
-  std::cout << "Enter number: ";
-  std::cin >> choice;
-
-  if (choice < 0 || choice >= files.size()) {
-    std::cout << "Invalid selection." << std::endl;
-    return 1;
-  }
-
-  GRID = countLines(files[choice]);
-  if (GRID == -1) {
-    exit(EXIT_FAILURE);
-  }
-  // -------------------------------
-  // Dynamic scaling (SAFE VERSION)
-  // -------------------------------
-  int screenW = GetMonitorWidth(0);
-  int screenH = GetMonitorHeight(0);
-
-  int MAX_UI_SPACE = 300;
-
-  // Prevent division issues
-  if (GRID <= 0)
-    GRID = 1;
-
-  int availableW = screenW - 2 * PADDING;
-  int availableH = screenH - 2 * PADDING - MAX_UI_SPACE;
-
-  // Safety clamp
-  availableW = std::max(availableW, GRID);
-  availableH = std::max(availableH, GRID);
-
-  int cellW = availableW / GRID;
-  int cellH = availableH / GRID;
-
-  CELL_SIZE = std::min(cellW, cellH);
-
-  // HARD safety limits (important)
-  if (CELL_SIZE < 60)
-    CELL_SIZE = 60;
-  if (CELL_SIZE > 80)
-    CELL_SIZE = 80;
-
-  Board board;
-  board.init(GRID);
-  board.loadFromFile(files[choice]);
-
-  for (int row = 0; row < GRID; row++) {
-    for (int col = 0; col < GRID; col++) {
-      cout << board.board[row][col].color << " " << row << " " << col << "\t";
-    }
-    cout << "\n";
-  }
-
-  int windowW = 2 * PADDING + GRID * CELL_SIZE;
-  int windowH = 2 * PADDING + GRID * CELL_SIZE + 300;
-
-  // Hard minimums (GLFW requires positive size)
-  if (windowW < 600)
-    windowW = 600;
-  if (windowH < 500)
-    windowH = 500;
-
-  // Hard maximums WITHOUT monitor query
-  if (windowW > 1800)
-    windowW = 1800;
-  if (windowH > 1000)
-    windowH = 1000;
-
-  SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_MAXIMIZED);
-
-  InitWindow(windowW, windowH, "Flow Game - Raylib");
-  SetTargetFPS(60);
-
-  int Monitor = GetCurrentMonitor();
-  int screen_Width = GetMonitorWidth(Monitor);
-  int screen_Height = GetMonitorHeight(Monitor);
-
-  int posX = (screen_Width - windowW) / 2;
-  int posY = (screen_Height - windowH) / 2;
-
-  if (posX < 0)
-    posX = 0;
-  if (posY < 0)
-    posY = 0;
-  SetWindowPosition(posX, posY);
-  // --------------------------------
-  // Center the grid inside the window
-  // --------------------------------
-  int gridPixelSize = GRID * CELL_SIZE;
-
-  GRID_OFFSET_X = (GetScreenWidth() - gridPixelSize) / 2;
-  GRID_OFFSET_Y = (GetScreenHeight() - gridPixelSize - 300) / 2;
-
-  // Keep some space at the top for aesthetics
-  if (GRID_OFFSET_Y < 40)
-    GRID_OFFSET_Y = 40;
-
-  Rectangle undo_button = {(GetScreenWidth() - 200) / 2,
-                           GRID_OFFSET_Y + gridPixelSize + 40, 200, 60};
-
-  Rectangle reset_button = {(GetScreenWidth() - 200) / 2,
-                            GRID_OFFSET_Y + gridPixelSize + 120, 200, 60};
-
-  Font roboto_font =
-      LoadFontEx("./resources/fonts/Roboto-Black.ttf", 64, NULL, 250);
-
-  SetTextureFilter(roboto_font.texture, TEXTURE_FILTER_TRILINEAR);
-
-  int thread_count = 0;
-
-  while (!WindowShouldClose()) {
-    Vector2 mouse_pos = GetMousePosition();
-    bool undo_hover = CheckCollisionPointRec(mouse_pos, undo_button);
-    bool undo_clicked = undo_hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
-
-    bool reset_hover = CheckCollisionPointRec(mouse_pos, reset_button);
-    bool reset_clicked = reset_hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
-
-    if (undo_clicked == true && !board.saved_paths.empty()) {
-      cout << "Undo clicked\n";
-      lock_guard<mutex> lock(boardMutex);
-      board.undoMove();
-    }
-
-    if (reset_clicked) {
-      cout << "Reset clicked\n";
-      lock_guard<mutex> lock(boardMutex);
-      board.resetBoard();
-    }
-
-    if (thread_count < 1) {
-      thread solverThread(solveThread, &board);
-      solverThread.detach();
-      thread_count++;
-    }
-
-    BeginDrawing();
-    ClearBackground(RAYWHITE);
-
-    if (undo_hover) {
-      DrawRectangleRec(undo_button, LIGHTGRAY);
-
-    } else {
-      DrawRectangleRec(undo_button, GRAY);
-    }
-    DrawRectangleLines(undo_button.x, undo_button.y, undo_button.width,
-                       undo_button.height, BLACK);
-
-    DrawTextEx(roboto_font, "Undo",
-               (Vector2){undo_button.x + 60, undo_button.y + 15}, 32, 2, BLACK);
-
-    if (reset_hover) {
-      DrawRectangleRec(reset_button, LIGHTGRAY);
-
-    } else {
-      DrawRectangleRec(reset_button, GRAY);
-    }
-    DrawRectangleLines(reset_button.x, reset_button.y, reset_button.width,
-                       reset_button.height, BLACK);
-
-    DrawTextEx(roboto_font, "Reset",
-               (Vector2){reset_button.x + 60, reset_button.y + 15}, 32, 2,
-               BLACK);
-
-    lock_guard<mutex> lock(boardMutex);
-    drawBoard(board);
-
-    EndDrawing();
-  }
-
-  CloseWindow();
-  return 0;
-}
-
 pair<pair<int, int>, pair<int, int>> findTerminals_2(const Board &board,
                                                      int color) {
 
@@ -401,13 +214,14 @@ int manhattanDistance(const Board &board, int color) {
   return abs(a.first - b.first) + abs(a.second - b.second);
 }
 unordered_map<int, pair<pair<int, int>, pair<int, int>>> color_to_terminal;
-void solveThread(Board *board) {
+void solveThread(Board board) {
   std::vector<int> colors; // 🔥 make it LOCAL (not global)
+  paths.clear();
 
   for (int i = 0; i < GRID; i++) {
     for (int j = 0; j < GRID; j++) {
-      if (board->board[i][j].isTerminal) {
-        colors.push_back(board->board[i][j].color);
+      if (board.board[i][j].isTerminal) {
+        colors.push_back(board.board[i][j].color);
       }
     }
   }
@@ -422,10 +236,80 @@ void solveThread(Board *board) {
     }
   }
   sort(uniqueColors.begin(), uniqueColors.end(), [&](int c1, int c2) {
-    return manhattanDistance(*board, c1) < manhattanDistance(*board, c2);
+    return manhattanDistance(board, c1) < manhattanDistance(board, c2);
   });
   std::vector<std::vector<bool>> visited(GRID, std::vector<bool>(GRID, false));
-  color_to_terminal = getTerminals(*board);
+  color_to_terminal = getTerminals(board);
 
-  solver(*board, 0, visited, uniqueColors);
+  solver(board, 0, visited, uniqueColors, color_to_terminal);
+}
+
+void generate(int gridSize, int numColors, int colorIndex,
+              vector<bool> &usedCells, Board &board) {
+  if (colorIndex == numColors) {
+
+    for (int i = 0; i < gridSize; i++)
+      for (int j = 0; j < gridSize; j++)
+        board.board[i][j].hasPipe = false;
+
+    solveThread(board);
+    return;
+  }
+  int totalCells = gridSize * gridSize;
+  int color = colorIndex + 1;
+
+  // Pick first terminal (a) and second terminal (b), b > a to avoid duplicates
+  for (int a = 0; a < totalCells; a++) {
+    if (usedCells[a])
+      continue;
+    int ar = a / gridSize, ac = a % gridSize;
+
+    for (int b = a + 1; b < totalCells; b++) {
+      if (usedCells[b])
+        continue;
+      int br = b / gridSize, bc = b % gridSize;
+
+      // Place
+      board.board[ar][ac].isTerminal = true;
+      board.board[ar][ac].color = color;
+      board.board[br][bc].isTerminal = true;
+      board.board[br][bc].color = color;
+      usedCells[a] = true;
+      usedCells[b] = true;
+
+      generate(gridSize, numColors, colorIndex + 1, usedCells, board);
+
+      // Undo
+      board.board[ar][ac].isTerminal = false;
+      board.board[ar][ac].color = 0;
+      board.board[br][bc].isTerminal = false;
+      board.board[br][bc].color = 0;
+      usedCells[a] = false;
+      usedCells[b] = false;
+    }
+  }
+}
+int COLORS;
+long long level_id;
+
+int main() {
+  level_id = 0;
+  int gridSize, numColors;
+
+  cout << "Enter grid size: ";
+  cin >> gridSize;
+  cout << "Enter number of colors: ";
+  cin >> numColors;
+
+  COLORS = numColors;
+  GRID = gridSize;
+
+  Board board;
+  board.init(gridSize);
+
+  vector<bool> usedCells(gridSize * gridSize, false);
+
+  generate(gridSize, numColors, 0, usedCells, board);
+
+  return 0;
 }

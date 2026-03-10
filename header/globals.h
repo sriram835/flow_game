@@ -22,6 +22,8 @@
 using namespace std;
 extern mutex boardMutex;
 extern int GRID;
+extern int COLORS;
+extern long long level_id;
 extern unordered_map<int, Color> color_map;
 const double REGION_THRESHOLD = 0.5;
 #endif
