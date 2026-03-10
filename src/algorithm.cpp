@@ -2,9 +2,9 @@
 #include <unistd.h>
 
 using namespace std;
-bool isCompleted(const Board &board);
 vector<pair<int, int>> algorithm(const Board board) { return {}; }
 unordered_map<int, vector<pair<int, int>>> paths;
+
 
 bool canVisit(const Board &board, int x, int y, int color,
               vector<vector<bool>> &visited) {
@@ -42,7 +42,6 @@ bool isCompletedVisited(const Board &board, vector<vector<bool>> &visited) {
 pair<pair<int, int>, pair<int, int>> findTerminals(const Board &board,
                                                    int color) {
   pair<int, int> first = {-1, -1}, second = {-1, -1};
-
   for (int i = 0; i < GRID; i++) {
     for (int j = 0; j < GRID; j++) {
       if (board.board.at(i).at(j).isTerminal &&
@@ -59,65 +58,6 @@ pair<pair<int, int>, pair<int, int>> findTerminals(const Board &board,
   return {first, second};
 }
 
-bool hasDeadRegion(const Board &board, const vector<vector<bool>> &visited,
-                   int currentColor) {
-
-  vector<vector<bool>> seen(GRID, vector<bool>(GRID, false));
-
-  for (int i = 0; i < GRID; i++) {
-    for (int j = 0; j < GRID; j++) {
-
-      if (visited[i][j] || seen[i][j])
-        continue;
-
-      // Found a new empty region
-      queue<pair<int, int>> q;
-      q.push({i, j});
-      seen[i][j] = true;
-      int isFirst = true;
-
-      unordered_map<int, int> terminalCount;
-      int regionSize = 0;
-      bool isDeadRegion = true;
-
-      while (!q.empty()) {
-        auto [x, y] = q.front();
-        q.pop();
-        regionSize++;
-
-        if (board.board[x][y].isTerminal) {
-          int color = board.board[x][y].color;
-          isDeadRegion = false;
-          if (color != currentColor) {
-            terminalCount[color]++;
-          }
-        }
-
-        for (int d = 0; d < 4; d++) {
-          int nx = x + dx[d];
-          int ny = y + dy[d];
-
-          if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID &&
-              !visited[nx][ny] && !seen[nx][ny]) {
-
-            seen[nx][ny] = true;
-            q.push({nx, ny});
-          }
-        }
-      }
-      for (auto &[color, count] : terminalCount) {
-        if (count == 1)
-          return true; // one terminal trapped alone
-      }
-      if (isDeadRegion) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 bool solver(Board &board, int index, vector<vector<bool>> &visited,
             vector<int> &colors) {
   //   cout << "Solver started: " << colors[index] << "\n";
@@ -127,9 +67,9 @@ bool solver(Board &board, int index, vector<vector<bool>> &visited,
   }
   int color = colors[index];
 
-  auto terminals = findTerminals(board, color);
-  auto start = terminals.first;
-  auto end = terminals.second;
+  pair<pair<int,int>,pair<int,int>> terminals = color_to_terminal[color];
+  pair<int,int> start = terminals.first;
+  pair<int,int> end = terminals.second;
   //   cout << "Find terminals ended\n";
   if (start.first == -1 || end.first == -1) {
     //     cout << "Invalid terminals for color " << color << endl;
@@ -189,8 +129,6 @@ bool single_color_dfs_check(
 
 bool dfs_feasibility_check(Board &board, vector<vector<bool>> &visited,
                            vector<int> &colors, int colorIndex) {
-  static unordered_map<int, pair<pair<int, int>, pair<int, int>>>
-      color_to_terminal = getTerminals(board);
   for (int i = colorIndex + 1; i < colors.size(); i++) {
 
     vector<vector<bool>> seen =
@@ -209,7 +147,7 @@ bool dfs_feasibility_check(Board &board, vector<vector<bool>> &visited,
 bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
               int colorIndex, vector<vector<bool>> &visited,
               vector<int> &colors) {
-  //cout << "DFS called\n";
+  // cout << "DFS called\n";
   //
   //
   //
@@ -227,9 +165,11 @@ bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
       return true;
     }
 
-    lock_guard<mutex> lock(boardMutex);
-    board.undoMove();
-    undoCount++;
+    {
+      lock_guard<mutex> lock(boardMutex);
+      board.undoMove();
+      undoCount++;
+    }
 
     return false;
   }
@@ -287,7 +227,7 @@ getTerminals(const Board &board) {
 
       const auto &cell = board.board[i][j];
 
-      if (cell.isTerminal && !cell.hasPipe) {
+      if (cell.isTerminal) {
 
         auto it = terminals.find(cell.color);
 

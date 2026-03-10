@@ -400,7 +400,7 @@ int manhattanDistance(const Board &board, int color) {
 
   return abs(a.first - b.first) + abs(a.second - b.second);
 }
-
+unordered_map<int, pair<pair<int, int>, pair<int, int>>> color_to_terminal;
 void solveThread(Board *board) {
   std::vector<int> colors; // 🔥 make it LOCAL (not global)
 
@@ -425,6 +425,7 @@ void solveThread(Board *board) {
     return manhattanDistance(*board, c1) < manhattanDistance(*board, c2);
   });
   std::vector<std::vector<bool>> visited(GRID, std::vector<bool>(GRID, false));
+  color_to_terminal = getTerminals(*board);
 
   solver(*board, 0, visited, uniqueColors);
 }

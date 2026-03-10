@@ -3,26 +3,36 @@
 #define ALGO_H
 #include "board.h"
 #include "globals.h"
+extern unordered_map<int, pair<pair<int, int>, pair<int, int>>> 
+    color_to_terminal;
+
+bool canVisit(const Board &board, int x, int y, int color,
+              vector<vector<bool>> &visited);
+
+bool isCompletedVisited(const Board &board, vector<vector<bool>> &visited);
+
+pair<pair<int, int>, pair<int, int>> findTerminals(const Board &board,
+                                                   int color);
+
+bool solver(Board &board, int index, vector<vector<bool>> &visited,
+            vector<int> &colors);
+
+bool single_color_dfs_check(
+    Board &board, const vector<vector<bool>> &visited, int color,
+    unordered_map<int, pair<pair<int, int>, pair<int, int>>> color_to_terminal,
+    vector<vector<bool>> &seen, int i, int j, int end_i, int end_j);
+
+bool dfs_feasibility_check(Board &board, vector<vector<bool>> &visited,
+                           vector<int> &colors, int colorIndex);
 
 bool dfsColor(Board &board, int x, int y, int tx, int ty, int color,
-              int colorIndex, vector<vector<bool>> &visited, vector<int> &colors);
-bool solver(Board &board, int index, vector<vector<bool>> &visited, vector<int> &colors);
-vector<pair<int, int>> algorithm(const Board board);
+              int colorIndex, vector<vector<bool>> &visited,
+              vector<int> &colors);
+
+bool isCompleted(const Board &board);
+
+
 unordered_map<int, pair<pair<int, int>, pair<int, int>>>
 getTerminals(const Board &board);
-int distanceBetween(const pair<int, int> &a, const pair<int, int> &b);
-map<int, vector<int>> getDistanceColor(
-    unordered_map<int, pair<pair<int, int>, pair<int, int>>> terminals);
-vector<vector<int>> getRegion(pair<int, int> start_index,
-                              pair<int, int> end_index, const Board board);
 
-bool pointInPolygon(const vector<pair<double, double>> &poly,
-                    pair<double, double> p);
-vector<pair<int, int>> dfsFindPath(pair<int, int> start, pair<int, int> end,
-                                   const Board &board,
-                                   const vector<vector<int>> &region);
-
-bool dfsUtil(int i, int j, int ei, int ej, const Board &board,
-             const vector<vector<int>> &region, vector<vector<bool>> &visited,
-             vector<pair<int, int>> &path);
 #endif
