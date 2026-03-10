@@ -4,3 +4,8 @@ build
 ./recordings/*
 ./recordings
 recordings
+./levels/
+./levels/*
+levels
+./levels
+
